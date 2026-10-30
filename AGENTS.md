@@ -85,16 +85,24 @@ Key files:
 - **Prompt-prefix snapshots.** LFM models are hybrid (conv + attention), and llama.cpp can't
   partially roll back their memory. Prefix reuse therefore goes through
   `llama_state_seq_get_data/set_data`; don't replace it with KV-cache truncation.
+- **llama.cpp build flags** (`scripts/patch_llama_xcframework.py`):
+  - arm64-only slices with `-march=armv8.4-a+dotprod+fp16`;
+  - Accelerate BLAS off;
+  - iOS 26 minimum (A13+), so DotProd is always available.
+
+  The bootstrap audits the iOS slices for `sdot` instructions. With DotProd compiled in, llama.cpp
+  *will* repack Q4_0 weights into anonymous memory unless `repackWeights` stays false, so keep it
+  false in both profiles. See `docs/INFERENCE.md`.
 - **No user text off the device.** No telemetry, no network calls in the keyboard extension.
 - **Models:** never commit weights. Catalog URLs must pin a Hugging Face commit, carry a SHA-256,
   and say the license (LFM Open License v1.0; free under $10M revenue; not OSI).
 
 ## 4. Build, run, test
 
-Prerequisites: Xcode 26, `brew install xcodegen`, Python 3.
+Prerequisites: Xcode 26, `brew install xcodegen`, Python 3. The app requires **iOS 26+** (A13 or newer).
 
 ```sh
-scripts/bootstrap.sh      # builds llama.xcframework b12015 from source (device + Simulator + macOS), ~8 min
+scripts/bootstrap.sh      # builds llama.xcframework b12015 from source (arm64 device + Simulator + macOS, DotProd, no BLAS), ~8 min
 xcodegen generate         # creates Lokey.xcodeproj (not committed)
 open Lokey.xcodeproj      # scheme "Lokey"; set your signing team on both targets
 ```
@@ -177,6 +185,15 @@ Not verified / open:
 
 ## 7. Next steps (prioritized)
 
+0. **Inference stack (decided, `docs/INFERENCE.md`):** keep llama.cpp. It is the only runtime that
+   fits a keyboard extension (memory-mapped weights, CPU, LFM3 support, MIT). Ranked next work:
+   - **Input-copy speculative decoding** on the C API with `n_rs_seq` rollback: the output mostly
+     copies the input. Estimated 1.3–1.7× end to end; about 150–250 lines.
+   - **Prefill the sentence while the user types.**
+   - **Persistent threadpool and warm-up.**
+   - **q8_0 KV cache.**
+   - **Per-device model choice.**
+   - **Optional Apple Foundation Models backend experiment.**
 1. **CPU tuning on Apple builds.**
    - **Resolved cause of the 27 s in-app fixes:** the old app profile used weight repacking with
      512-token micro-batches. On Apple builds that was 5–10× slower than the keyboard profile:
@@ -184,9 +201,11 @@ Not verified / open:
      `Configuration.app` now uses the same CPU settings with a larger context.
    - **The iOS slice itself is fine:** the 70-case eval in the Simulator matches macOS
      (490 ms mean per sentence).
+   - **Done:** the iOS slices are now built with DotProd/fp16 and BLAS off (iOS 26 minimum).
+     Upstream's Simulator and macOS slices were `arm64;x86_64`, which compiled no ARM kernels at all.
    - **Next:** use `testThroughputProfiles` (keyboard, app, app_ubatch128, repack_ubatch512) to tune
-     micro-batch size. Try building the iOS slices with ARM feature flags
-     (`-DGGML_CPU_ARM_ARCH=armv8.4-a+dotprod`; needs A13+, i.e. iOS 26) and measure on a device.
+     micro-batch size, then measure the DotProd build on a device (`DOTPROD = 1` in
+     `llama_print_system_info()`).
 2. **Inference stack review.** Compare llama.cpp with alternatives (MLX, ExecuTorch, ONNX Runtime,
    Core ML/ANE, LiteRT-LM) under the keyboard constraints: memory-mapped weights, no GPU in the
    extension, LFM2/LFM3 support, OSI license. Highest expected in-stack win: prompt-lookup (n-gram)

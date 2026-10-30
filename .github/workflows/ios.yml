@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: Packages/WriterKit/Vendor
-          key: llama-xcframework-${{ env.LLAMA_TAG }}-source-v1
+          key: llama-xcframework-${{ env.LLAMA_TAG }}-dotprod-v2
       - name: Restore models
         id: models-cache
         uses: actions/cache/restore@v4
@@ -54,7 +54,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: Packages/WriterKit/Vendor
-          key: llama-xcframework-${{ env.LLAMA_TAG }}-source-v1
+          key: llama-xcframework-${{ env.LLAMA_TAG }}-dotprod-v2
       - name: Save models
         if: steps.models-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4

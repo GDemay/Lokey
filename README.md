@@ -53,6 +53,10 @@ Keyboard extension (UIInputViewController + SwiftUI)
 | `project.yml` | XcodeGen spec (the `.xcodeproj` is generated) |
 | `scripts/` | bootstrap, model fetch, CI |
 
+## Requirements
+
+iPhone with iOS 26 or later (A13 chip or newer). Inference uses ARM DotProd CPU instructions.
+
 ## Build & run
 
 ```sh
@@ -87,6 +91,7 @@ Hugging Face.
 
 - [docs/RESEARCH.md](docs/RESEARCH.md): AiText teardown, competitors, model choice, iOS constraints, name.
 - [docs/BENCHMARK.md](docs/BENCHMARK.md): measured accuracy, latency and memory per model.
+- [docs/INFERENCE.md](docs/INFERENCE.md): why llama.cpp (vs MLX, ExecuTorch, ONNX, Core ML/ANE, LiteRT-LM, uzu…) and the ranked speed plan.
 
 ## Licenses
 

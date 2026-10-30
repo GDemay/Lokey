@@ -33,7 +33,7 @@ targets.append(.target(name: "KeyboardUI", dependencies: ["WritingCore"]))
 
 let package = Package(
     name: "WriterKit",
-    platforms: [.iOS(.v17), .macOS(.v14)],
+    platforms: [.iOS("26.0"), .macOS(.v14)],
     products: products,
     targets: targets
 )

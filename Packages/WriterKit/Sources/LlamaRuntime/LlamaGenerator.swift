@@ -13,7 +13,11 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         public var contextLength: Int
         public var batchSize: Int
         public var microBatchSize: Int
+        /// Decode threads. iPhones have 2 performance cores; ggml ends every op with a barrier, so a
+        /// thread on an efficiency core stalls the whole step.
         public var threads: Int
+        /// Threads for prompt batches (prefill), which parallelize better.
+        public var batchThreads: Int
         public var gpuLayers: Int
         /// llama.cpp can repack weights into faster layouts, but that copies them into
         /// anonymous memory. Keep it off where memory is tight (keyboard extension).
@@ -24,12 +28,14 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         public var allowsMetal: Bool
 
         public init(contextLength: Int = 2048, batchSize: Int = 512, microBatchSize: Int = 512,
-                    threads: Int = Configuration.defaultThreads, gpuLayers: Int = 0,
+                    threads: Int = Configuration.defaultThreads,
+                    batchThreads: Int = Configuration.defaultBatchThreads, gpuLayers: Int = 0,
                     repackWeights: Bool = true, maxCachedPrefixes: Int = 6, allowsMetal: Bool = true) {
             self.contextLength = contextLength
             self.batchSize = batchSize
             self.microBatchSize = microBatchSize
             self.threads = threads
+            self.batchThreads = batchThreads
             self.gpuLayers = gpuLayers
             self.repackWeights = repackWeights
             self.maxCachedPrefixes = maxCachedPrefixes
@@ -37,8 +43,21 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         }
 
         public static var defaultThreads: Int {
+            #if os(iOS) && !targetEnvironment(simulator)
+            return 2
+            #else
             let cores = ProcessInfo.processInfo.activeProcessorCount
             return min(4, max(2, cores / 2 + 1))
+            #endif
+        }
+
+        public static var defaultBatchThreads: Int {
+            let cores = ProcessInfo.processInfo.activeProcessorCount
+            #if os(iOS) && !targetEnvironment(simulator)
+            return min(4, max(2, cores - 2))
+            #else
+            return min(4, max(2, cores / 2 + 1))
+            #endif
         }
 
         /// Fits the keyboard extension's memory limit: weights stay memory-mapped
@@ -105,7 +124,7 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         ctxParams.n_ubatch = UInt32(min(configuration.microBatchSize, configuration.batchSize))
         ctxParams.n_seq_max = 1
         ctxParams.n_threads = Int32(configuration.threads)
-        ctxParams.n_threads_batch = Int32(configuration.threads)
+        ctxParams.n_threads_batch = Int32(configuration.batchThreads)
         ctxParams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO
         ctxParams.no_perf = true
         if configuration.gpuLayers == 0 {
