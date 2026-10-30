@@ -167,9 +167,11 @@ final class LokeyUITests: XCTestCase {
             screenshot("13-settings-full-access")
         }
 
-        app.activate()
+        app.terminate()
+        app.launch()
         app.tabBars.buttons["Write"].tap()
         let editor = app.textViews["editor.text"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
         editor.tap()
         // The extension's UI is reachable from the host app or through its own bundle identifier.
         let keyboardProcess = XCUIApplication(bundleIdentifier: "com.gdemay.lokey.keyboard")

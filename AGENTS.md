@@ -92,7 +92,8 @@ Key files:
 
   The bootstrap audits the iOS slices for `sdot` instructions. With DotProd compiled in, llama.cpp
   *will* repack Q4_0 weights into anonymous memory unless `repackWeights` stays false, so keep it
-  false in both profiles. See `docs/INFERENCE.md`.
+  false in the keyboard profile. The app profile enables repacking on purpose: it is the fastest
+  path with DotProd, and the app can afford the copy. See `docs/INFERENCE.md`.
 - **No user text off the device.** No telemetry, no network calls in the keyboard extension.
 - **Models:** never commit weights. Catalog URLs must pin a Hugging Face commit, carry a SHA-256,
   and say the license (LFM Open License v1.0; free under $10M revenue; not OSI).
@@ -171,7 +172,8 @@ Verified:
 - **Real-model integration tests:** pass on Linux, on Apple Silicon (macOS CI) and inside the iOS 26.2 Simulator.
 - **Accuracy:** LFM2.5-1.2B (default) gets 77.1% of the 70 keyboard cases right with 0 harmful
   edits; JFLEG GLEU is 53.7 versus 35.9 for no edit (`docs/BENCHMARK.md`).
-- **Apple Silicon CPU:** 483 ms mean / 603 ms p90 per sentence; keyboard `phys_footprint` 37.5 MB.
+- **Apple Silicon CPU (DotProd build):** 313 ms mean / 383 ms p90 per sentence; keyboard `phys_footprint` 37.1 MB.
+- **iOS 26.2 Simulator (DotProd build):** 388 ms mean / 557 ms p90 per sentence, 52 tok/s decode.
 - **iOS 26.2 Simulator (iPhone 17 Pro):**
   - the app and keyboard extension build, install and run with the real model;
   - UI tests pass for screens, the in-app editor Fix → Replace flow, the in-app keyboard
@@ -198,7 +200,8 @@ Not verified / open:
    - **Resolved cause of the 27 s in-app fixes:** the old app profile used weight repacking with
      512-token micro-batches. On Apple builds that was 5–10× slower than the keyboard profile:
      10.7 vs 101 tok/s prefill and 6.6 vs 23 tok/s decode, inside the iOS Simulator.
-     `Configuration.app` now uses the same CPU settings with a larger context.
+     Fixed by building llama.cpp with DotProd; with it, repacking became the fastest path, so
+     `Configuration.app` now repacks (0.34 s per fix in the Simulator), while the keyboard must not.
    - **The iOS slice itself is fine:** the 70-case eval in the Simulator matches macOS
      (490 ms mean per sentence).
    - **Done:** the iOS slices are now built with DotProd/fp16 and BLAS off (iOS 26 minimum).

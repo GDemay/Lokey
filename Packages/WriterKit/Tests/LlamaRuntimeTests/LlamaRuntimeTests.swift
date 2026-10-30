@@ -90,14 +90,11 @@ final class LlamaRuntimeTests: XCTestCase {
         let path = try modelPath()
         let library = try PromptLibrary.bundled()
         let text = "i dont think their coming tomorow because its raining and the roads is closed"
-        var repack = LlamaGenerator.Configuration.app
-        repack.repackWeights = true
-        repack.batchSize = 512
-        repack.microBatchSize = 512
-        var ubatch128 = LlamaGenerator.Configuration.app
-        ubatch128.microBatchSize = 128
+        var keyboardUbatch128 = LlamaGenerator.Configuration.keyboard
+        keyboardUbatch128.microBatchSize = 128
+        keyboardUbatch128.batchSize = 128
         let profiles: [(String, LlamaGenerator.Configuration)] = [
-            ("keyboard", .keyboard), ("app", .app), ("app_ubatch128", ubatch128), ("repack_ubatch512", repack),
+            ("keyboard", .keyboard), ("keyboard_ubatch128", keyboardUbatch128), ("app", .app),
         ]
         for (name, config) in profiles {
             let generator = try LlamaGenerator(modelPath: path, format: format, configuration: config)

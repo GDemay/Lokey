@@ -37,6 +37,7 @@ final class AppModel: ObservableObject {
             loaded.showChangesBeforeApplying = true
         }
         settings = loaded
+        if ProcessInfo.processInfo.arguments.contains("--uitest") { settingsStore.save(loaded) }
         try? store.prepareDirectory()
         refresh()
     }

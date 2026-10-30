@@ -69,12 +69,13 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
                           gpuLayers: 0, repackWeights: false, maxCachedPrefixes: 2, allowsMetal: false)
         }
 
-        /// The containing app has more memory (bigger context, more cached prompts), but uses the
-        /// same CPU settings: on Apple builds, weight repacking with 512-token micro-batches measured
-        /// 5-10x slower than this (testThroughputProfiles: 10.7 vs 101 tok/s prefill, 6.6 vs 23 decode).
+        /// The containing app has gigabytes of headroom, so it can afford llama.cpp's weight repacking
+        /// (an anonymous copy of the weights, forbidden in the keyboard). With the DotProd build this is
+        /// the fastest path: 0.34 s vs 0.59 s per fix in the iOS Simulator, 281 vs 107 tok/s prefill
+        /// (testThroughputProfiles). Without DotProd it was 5-10x slower, so keep the two together.
         public static var app: Configuration {
-            Configuration(contextLength: 2048, batchSize: 256, microBatchSize: 32,
-                          repackWeights: false, maxCachedPrefixes: 6)
+            Configuration(contextLength: 2048, batchSize: 512, microBatchSize: 512,
+                          repackWeights: true, maxCachedPrefixes: 6)
         }
     }
 

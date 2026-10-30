@@ -16,6 +16,21 @@ changes (`.github/workflows/eval.yml`).
 - **JFLEG**: first 150 sentences of the test split, corpus GLEU averaged over the 4 references
   (no-edit baseline 35.9; published human references score ~62).
 
+## DotProd llama.cpp build (CI, `docs/INFERENCE.md` item 1)
+
+Same pipeline and model (LFM2.5-1.2B, keyboard profile, CPU only), before → after building the
+Apple slices arm64-only with `-march=armv8.4-a+dotprod+fp16` and BLAS off:
+
+| Where | Mean / p90 per sentence | Decode tok/s | Prefill tok/s | Keyboard `phys_footprint` |
+|---|---|---|---|---|
+| iOS 26.2 Simulator (iOS slice) | 490 / 632 ms → **388 / 557 ms** | 23 → **52** | 101 → 107 | — |
+| Apple Silicon CPU (macOS slice) | 483 / 603 ms → **313 / 383 ms** | 25 → **71** | 143 → 168 | 37.5 → 37.1 MB |
+
+Accuracy unchanged (77.1%, 0 harmful). The binary audit counts 1,133 `sdot` instructions in the
+iOS slice (upstream: 0). With DotProd, llama.cpp's weight repacking becomes the fastest path
+(0.34 s per fix, 281 tok/s prefill in the Simulator), but it copies the weights into counted memory,
+so only the app profile uses it.
+
 ## Apple Silicon (CI, macOS runner CPU, keyboard memory profile)
 
 Measured by the `ios` CI workflow on a GitHub macOS arm64 runner (Apple M-series CPU, the same core
