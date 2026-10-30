@@ -44,14 +44,29 @@ With q8_0 KV one keyboard case changed, from unchanged to correct ("I have lived
 3 years."). A 512-token context would save another 3 MB but cannot hold the 318-token prompt plus a
 400-character chunk and its correction, so the context stays at 1024.
 
+On Apple Silicon (macOS CI, real `phys_footprint`, fresh process) the q8_0 profile adds
+**31.5 MB** for LFM2.5-1.2B (load +25.9, prewarm +3.5, request +0.5) and 29.9 MB for the 350M model,
+down from 37.1–42.1 MB with f16 KV and 32-token micro-batches.
+
 **The extension itself.** `testKeyboardMemoryFootprint` measures the inference cost on top of a test
-process, not the keyboard's footprint. The keyboard now logs its own footprint and peak
+process, not the keyboard's footprint. The keyboard logs its own footprint and peak
 (`ledger_phys_footprint_peak`) at load, after prewarm and after every request, and shows the peak
-in Settings. In the iOS 26.2 Simulator (Debug build, before the q8_0 change) the extension was at
-31–48 MB before loading the model, 81.6 MB after loading LFM2.5-1.2B and peaked at 91.6 MB. Simulator
-Debug footprints run tens of MB above a device Release build (another keyboard project measured
-~35 MB more), so only a device can say how close this is to 77 MB; it is the first thing to measure
-on an iPhone (`AGENTS.md` §7).
+in Settings. iOS 26.2 Simulator, Debug build, real system keyboard with Full Access (`test05`):
+
+| Moment | f16 KV, micro-batch 32 | q8_0 KV, micro-batch 16 |
+|---|---|---|
+| Keyboard appears (no model) | 31.1 MB | 31.2 MB |
+| Model loaded | 81.6 MB¹ | 58.3 MB |
+| Prompt prewarmed | 90.8 MB | 75.4 MB |
+| After a Fix (peak) | 91.6 MB | **83.0 MB** |
+
+¹ The keyboard's first render happened before the load in that run: without a model, drawing the
+keyboard once took the extension from 31 to 48 MB. So in the Simulator the keyboard UI is ~48 MB and
+inference ~32 MB of the peak. Simulator Debug footprints run tens of MB above a device Release build
+(another keyboard project measured ~35 MB more), so only a device can say how close the 77 MB limit
+is; it is the first thing to measure on an iPhone (`AGENTS.md` §7). With Full Access the keyboard
+loads the model when it appears (0.35 s) and prewarms the prompt in the background (2.8 s); the first
+Fix then took 0.33 s (0.21 s prefill of 18 new tokens, 0.12 s decode).
 
 ## DotProd llama.cpp build (CI, `docs/INFERENCE.md` item 1)
 

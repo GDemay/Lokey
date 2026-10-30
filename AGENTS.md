@@ -66,9 +66,9 @@ Key files:
   - at most one model loaded (`KeyboardEngine` releases the old one first).
 
   Check any change with `testKeyboardMemoryFootprint`. It reports what inference *adds* to a process
-  (load, prewarm and request stages), not the extension's total. On Linux: 35.1 MB (1.2B), 33.9 MB
-  (350M); ~20 MB of it is llama.cpp's tokenizer tables, the same for every model. On macOS CI it reports
-  `phys_footprint`, which varies by ~5 MB between runner machines. The extension's own footprint and
+  (load, prewarm and request stages), not the extension's total: `phys_footprint` on macOS CI 31.5 MB
+  (1.2B) / 29.9 MB (350M), anonymous memory on Linux 35.1 / 33.9 MB; ~20 MB of it is llama.cpp's
+  tokenizer tables, the same for every model. macOS numbers vary by ~5 MB between runner machines. The extension's own footprint and
   peak are in the diagnostics log (`Diagnostics`, subsystem `com.gdemay.lokey`) and in Settings.
 - **Never write an unrelated edit into the user's text.** `OutputGuard` rejects outputs that look
   like an answer rather than an edit:
@@ -180,14 +180,18 @@ Verified:
   edits; JFLEG GLEU is 53.8 versus 35.9 for no edit (`docs/BENCHMARK.md`).
 - **Speed (DotProd build, keyboard profile):** 295–313 ms mean per sentence on Apple Silicon CPU,
   354–388 ms in the iOS 26.2 Simulator; the first Fix after the keyboard prewarms its prompt takes 0.22 s.
-- **Keyboard memory:** inference adds 35.1 MB (1.2B) / 33.9 MB (350M) on Linux with the q8_0 KV
-  cache. The extension itself, in the Simulator's Debug build before that change: 31–48 MB before the
-  model, 81.6 MB after loading it, 91.6 MB peak (`docs/BENCHMARK.md`).
+- **Keyboard memory:** inference adds 31.5 MB (1.2B) / 29.9 MB (350M) of `phys_footprint` on Apple
+  Silicon with the q8_0 KV cache. The extension itself in the Simulator's Debug build: 31 MB when it
+  appears, ~48 MB once its UI has drawn, 58 MB with the model loaded, **83 MB peak** after a Fix
+  (91.6 MB before the q8_0 change) (`docs/BENCHMARK.md`).
+- **First Fix with the real keyboard:** with Full Access it loads the model on appear (0.35 s),
+  prewarms in the background, and the first Fix takes 0.33 s in the Simulator.
 - **iOS 26.2 Simulator (iPhone 17 Pro), all 5 UI tests pass:**
   - screens render; in-app editor Fix → Replace; in-app keyboard Fix → Apply;
     autocorrect-as-you-type with Undo;
-  - **the real system keyboard** (`test05`): added through the Settings app, switched to with the
-    globe key, typed into, Fix → Apply ("she have two brothers" → "She has two brothers").
+  - **the real system keyboard** (`test05`): added through the Settings app with Full Access
+    granted, switched to with the globe key, typed into, Fix → Apply ("she have two brothers" →
+    "She has two brothers").
 - **Diagnostics:** the app and the keyboard log model load, prewarm and every request (tokens,
   cached tokens, timings, footprint, peak, and on a device the memory left before the limit) to the
   system log, never text. `scripts/ci/ios-e2e.sh` prints them; on an iPhone use Console.app with
@@ -195,11 +199,8 @@ Verified:
 
 Not verified / open:
 - **Physical iPhone:** whether the extension stays under 77 MB (Simulator Debug footprints run tens
-  of MB above device Release builds, so the 92 MB peak above doesn't settle it), real latency, and
-  App Group access without Full Access.
-- **`test05` with Full Access granted:** the test used to tap the switch's label, so it ran without
-  Full Access (the Simulator still let it read the App Group). It now taps the switch itself and
-  prints `METRIC system_keyboard_full_access`; check the next CI run.
+  of MB above device Release builds, so the 83 MB Simulator peak doesn't settle it; ~48 MB of it is
+  the keyboard UI), real latency, and App Group access without Full Access.
 - **LFM3:** its first CI eval (34%) was a harness bug (duplicated answers, see `docs/BENCHMARK.md`);
   the fix is in, its real score comes from the next `eval.yml` run.
 - **App Store:** not submitted. No developer account or signing team is configured.
@@ -209,9 +210,11 @@ Not verified / open:
 1. **Device validation (most important).** Install a Release build on an A13+ iPhone (iOS 26) and
    watch Console.app (subsystem `com.gdemay.lokey`): every line has `footprint`, `peak` and
    `available` (footprint + available = the real limit). Settings shows the keyboard's last peak.
-   - If the peak gets near the limit: drop the snapshot cache to 1 prefix (`maxCachedPrefixes`),
-     use the 350M model in the keyboard, or move inference into the app (other keyboards do: the
-     extension then only types).
+   - If the peak gets near the limit: measure the keyboard UI first (it was ~48 MB of the 83 MB
+     Simulator peak: materials, shadows and per-key layers cost backing stores), then drop the
+     snapshot cache to 1 prefix (`maxCachedPrefixes`), or move inference into the app (other
+     keyboards do: the extension then only types). A smaller model saves little: most of the
+     inference cost is the tokenizer and buffers, not the weights.
    - Check latency, memory warnings, and host apps that truncate context (WhatsApp, Telegram,
      Signal, Mail).
    - **Full Access may not be needed:** Apple's open-access documentation says a keyboard without it

@@ -36,7 +36,7 @@ Keyboard extension (UIInputViewController + SwiftUI)
   each request only evaluates the user's text (prefill 1.44 s → 0.12 s measured).
 - **Fits in a keyboard** (iOS kills keyboards above 77 MB): weights are memory-mapped (clean
   pages, not counted), llama.cpp runs CPU-only with a q8_0 KV cache and small buffers, adding
-  ~35 MB for the 1.2B model (`testKeyboardMemoryFootprint`). The keyboard logs its own footprint
+  ~32 MB for the 1.2B model on Apple Silicon (`testKeyboardMemoryFootprint`). The keyboard logs its own footprint
   and peak; it still has to be confirmed on an iPhone.
 - **Safe**: a deterministic output guard rejects outputs that answer the text instead of
   correcting it (`"can you explain…"` → `"Sure, I'd be happy to…"`), copy words from the
