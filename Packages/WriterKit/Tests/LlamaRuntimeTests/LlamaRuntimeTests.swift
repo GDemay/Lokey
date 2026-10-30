@@ -51,6 +51,16 @@ final class LlamaRuntimeTests: XCTestCase {
         XCTAssertEqual(again.text, cold.text)
     }
 
+    /// The keyboard prewarms the fix prompt when it appears, so the first Fix must not evaluate it again.
+    func testPrewarmMakesTheFirstRequestWarm() async throws {
+        let generator = try LlamaGenerator(modelPath: try modelPath(), format: format, configuration: .keyboard)
+        let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
+        await assistant.prewarm()
+        let result = try await assistant.run(actionID: "fix", text: "she have two brothers")
+        print("METRIC first_fix_after_prewarm_s=\(result.stats.totalSeconds) cached_tokens=\(result.stats.cachedTokens)")
+        XCTAssertGreaterThan(result.stats.cachedTokens, 0)
+    }
+
     func testCancellationStopsGeneration() async throws {
         let library = try PromptLibrary.bundled()
         let generator = try LlamaGenerator(modelPath: try modelPath(), format: format, configuration: .keyboard)
@@ -79,8 +89,9 @@ final class LlamaRuntimeTests: XCTestCase {
         let after = MemoryBudget.footprintBytes() ?? 0
         let deltaMB = Double(after &- before) / 1_048_576
         let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.doubleValue ?? 0
-        print(String(format: "METRIC keyboard_footprint_delta_mb=%.1f before_mb=%.1f after_mb=%.1f model_file_mb=%.1f",
-                     deltaMB, Double(before) / 1_048_576, Double(after) / 1_048_576, size / 1_048_576))
+        let peak = MemoryBudget.peakFootprintBytes().map { Double($0) / 1_048_576 } ?? -1
+        print(String(format: "METRIC keyboard_footprint_delta_mb=%.1f before_mb=%.1f after_mb=%.1f peak_mb=%.1f model_file_mb=%.1f",
+                     deltaMB, Double(before) / 1_048_576, Double(after) / 1_048_576, peak, size / 1_048_576))
         // Weights are memory-mapped: the footprint must not grow with the model file.
         XCTAssertLessThan(deltaMB, 120)
     }

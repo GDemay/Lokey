@@ -97,6 +97,7 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
     }
 
     public init(modelPath: String, format: String, configuration: Configuration = .app) throws {
+        let loadStart = DispatchTime.now()
         LlamaBackend.initialize(metal: configuration.allowsMetal)
         guard FileManager.default.fileExists(atPath: modelPath) else { throw GeneratorError.modelNotFound(modelPath) }
         self.modelPath = modelPath
@@ -148,6 +149,10 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         self.context = context
         self.vocab = vocab
         self.sampler = chain
+        let loadSeconds = Double(DispatchTime.now().uptimeNanoseconds - loadStart.uptimeNanoseconds) / 1e9
+        Diagnostics.log("loaded \(URL(fileURLWithPath: modelPath).lastPathComponent) in \(Self.format(loadSeconds)) "
+            + "(ctx \(configuration.contextLength), ubatch \(configuration.microBatchSize), "
+            + "threads \(configuration.threads)/\(configuration.batchThreads)); \(MemoryBudget.summary())")
     }
 
     deinit {
@@ -164,7 +169,11 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
 
     public func prewarm(prefix: String) async throws {
         try await run { _ in
-            _ = try self.loadPrefix(prefix)
+            let start = DispatchTime.now()
+            let (tokens, cached) = try self.loadPrefix(prefix)
+            let elapsed = self.seconds(from: start, to: DispatchTime.now())
+            Diagnostics.log("prewarm: \(tokens) prompt tokens\(cached ? " (already cached)" : "") in "
+                + "\(Self.format(elapsed)); \(MemoryBudget.summary())")
         }
     }
 
@@ -277,6 +286,9 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         let text = Self.truncateAtStop(decoded, prompt.stop) ?? decoded
         stats.generatedTokens = generated
         stats.decodeSeconds = seconds(from: prefillEnd, to: DispatchTime.now())
+        Diagnostics.log("generate: \(stats.promptTokens) prompt tokens (\(stats.cachedTokens) cached) in "
+            + "\(Self.format(stats.prefillSeconds)), \(stats.generatedTokens) tokens in \(Self.format(stats.decodeSeconds)); "
+            + MemoryBudget.summary())
         return GenerationOutput(text: text, stats: stats)
     }
 
@@ -345,6 +357,10 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
 
     private func seconds(from a: DispatchTime, to b: DispatchTime) -> Double {
         Double(b.uptimeNanoseconds - a.uptimeNanoseconds) / 1e9
+    }
+
+    private static func format(_ seconds: Double) -> String {
+        String(format: "%.2f s", seconds)
     }
 }
 

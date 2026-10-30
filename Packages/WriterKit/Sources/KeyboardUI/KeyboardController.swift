@@ -13,6 +13,12 @@ public protocol KeyboardHost: AnyObject {
     var autocapitalizesSentences: Bool { get }
     func advanceToNextInputMode()
     func playInputClick()
+    /// Called after each model request, e.g. to record the process's peak memory.
+    func didFinishModelRequest()
+}
+
+public extension KeyboardHost {
+    func didFinishModelRequest() {}
 }
 
 /// Lazily provides the writing assistant (loads the model on first use).
@@ -339,6 +345,7 @@ public final class KeyboardController: ObservableObject {
                         self.phase = .working(action: action, partial: partial)
                     }
                 }
+                host?.didFinishModelRequest()
                 try Task.checkCancellation()
                 if !result.hasChanges {
                     phase = .message(result.rejectedChunks > 0 ? "No safe suggestion for this text." : "Looks good. Nothing to fix.")
@@ -416,8 +423,9 @@ public final class KeyboardController: ObservableObject {
         liveTask = Task {
             try? await Task.sleep(nanoseconds: 120_000_000)  // let a burst of punctuation settle
             guard !Task.isCancelled, let assistant = try? await readyAssistant(),
-                  let result = try? await assistant.run(actionID: WritingAction.fix.id, text: pending.original),
-                  !Task.isCancelled, result.hasChanges, case .idle = phase else { return }
+                  let result = try? await assistant.run(actionID: WritingAction.fix.id, text: pending.original) else { return }
+            host?.didFinishModelRequest()
+            guard !Task.isCancelled, result.hasChanges, case .idle = phase else { return }
             let corrected = result.output
             // Never offer a fix that can no longer be placed (the sentence was edited meanwhile).
             guard let steps = livePolicy.reconcile(pending, corrected: corrected,

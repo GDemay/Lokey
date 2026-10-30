@@ -43,7 +43,9 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
         controller.settings = settingsStore.load()
         controller.resetTransientState()
         reportStatus(modelName: nil)
-        if hasFullAccess, controller.settings.autocorrectMode != .off {
+        let preload = hasFullAccess && controller.settings.autocorrectMode != .off
+        Diagnostics.log("keyboard will appear (full access: \(hasFullAccess), preload: \(preload)); \(MemoryBudget.summary())")
+        if preload {
             controller.prepareEngine()
         }
     }
@@ -51,6 +53,7 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         controller.resetTransientState()
+        reportStatus(modelName: nil)
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
@@ -60,18 +63,19 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
+        Diagnostics.log("keyboard memory warning; " + MemoryBudget.summary())
         controller.releaseEngine()
         KeyboardEngine.shared.release()
     }
 
     private func reportStatus(modelName: String?) {
         guard hasFullAccess else { return }
-        let footprint = MemoryBudget.footprintBytes().map { Double($0) / 1_048_576 }
         var status = settingsStore.loadKeyboardStatus() ?? KeyboardStatus(lastSeen: Date(), hasFullAccess: true)
         status.lastSeen = Date()
         status.hasFullAccess = true
         if let modelName { status.modelName = modelName }
-        status.footprintMB = footprint
+        status.footprintMB = MemoryBudget.footprintBytes().map { Double($0) / 1_048_576 }
+        status.peakFootprintMB = MemoryBudget.peakFootprintBytes().map { Double($0) / 1_048_576 }
         settingsStore.saveKeyboardStatus(status)
     }
 
@@ -100,6 +104,10 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
 
     func playInputClick() {
         UIDevice.current.playInputClick()
+    }
+
+    func didFinishModelRequest() {
+        reportStatus(modelName: nil)
     }
 }
 

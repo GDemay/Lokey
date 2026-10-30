@@ -25,14 +25,7 @@ public enum MemoryBudget {
     /// Current physical footprint (what the jetsam limit is compared against), if available.
     public static func footprintBytes() -> UInt64? {
         #if canImport(Darwin)
-        var info = task_vm_info_data_t()
-        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
-        let kr = withUnsafeMutablePointer(to: &info) {
-            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
-            }
-        }
-        return kr == KERN_SUCCESS ? UInt64(info.phys_footprint) : nil
+        return taskVMInfo().map { UInt64($0.phys_footprint) }
         #elseif os(Linux)
         // Anonymous resident memory: the closest Linux analogue (excludes clean file-backed pages).
         // procfs reports a size of 0, so read it with stdio rather than Foundation.
@@ -51,6 +44,36 @@ public enum MemoryBudget {
         return nil
         #endif
     }
+
+    /// Highest physical footprint this process has reached. The system kills an extension the
+    /// moment it crosses its limit, so the peak (not the current value) is what must fit.
+    public static func peakFootprintBytes() -> UInt64? {
+        #if canImport(Darwin)
+        guard let peak = taskVMInfo()?.ledger_phys_footprint_peak, peak > 0 else { return nil }
+        return UInt64(peak)
+        #else
+        return nil
+        #endif
+    }
+
+    /// "footprint 45.1 MB, peak 61.0 MB" for diagnostics logs.
+    public static func summary() -> String {
+        func mb(_ bytes: UInt64?) -> String { bytes.map { String(format: "%.1f MB", Double($0) / 1_048_576) } ?? "n/a" }
+        return "footprint \(mb(footprintBytes())), peak \(mb(peakFootprintBytes()))"
+    }
+
+    #if canImport(Darwin)
+    private static func taskVMInfo() -> task_vm_info_data_t? {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let kr = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        return kr == KERN_SUCCESS ? info : nil
+    }
+    #endif
 
     /// Estimated extra footprint to run `model` with keyboard settings, from measurements
     /// (see LlamaRuntimeTests.testKeyboardMemoryFootprint).

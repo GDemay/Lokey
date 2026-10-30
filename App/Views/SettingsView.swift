@@ -69,6 +69,7 @@ extension SettingsView {
         var line = "Keyboard last active " + status.lastSeen.formatted(.relative(presentation: .named))
         if let name = status.modelName { line += " · " + name }
         if let mb = status.footprintMB { line += String(format: " · %.0f MB", mb) }
+        if let peak = status.peakFootprintMB { line += String(format: " (peak %.0f MB)", peak) }
         return line
     }
 }

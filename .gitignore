@@ -14,3 +14,4 @@ Packages/WriterKit/.build/
 Packages/WriterKit/.swiftpm/
 eval/data/
 __pycache__/
+.venv/

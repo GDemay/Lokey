@@ -65,12 +65,16 @@ public struct KeyboardStatus: Codable, Equatable, Sendable {
     public var hasFullAccess: Bool
     public var modelName: String?
     public var footprintMB: Double?
+    /// The extension's highest footprint so far; this is what must stay under the memory limit.
+    public var peakFootprintMB: Double?
 
-    public init(lastSeen: Date, hasFullAccess: Bool, modelName: String? = nil, footprintMB: Double? = nil) {
+    public init(lastSeen: Date, hasFullAccess: Bool, modelName: String? = nil, footprintMB: Double? = nil,
+                peakFootprintMB: Double? = nil) {
         self.lastSeen = lastSeen
         self.hasFullAccess = hasFullAccess
         self.modelName = modelName
         self.footprintMB = footprintMB
+        self.peakFootprintMB = peakFootprintMB
     }
 }
 

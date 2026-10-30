@@ -70,6 +70,11 @@ status=$?
 set -e
 grep -E "Test Case|error:|[Ss]kipped|TEST (SUCCEEDED|FAILED)" "$ARTIFACTS/test.log" || tail -n 80 "$ARTIFACTS/test.log"
 
+# Diagnostics from the app and the keyboard extension (timings, token counts, memory; no text).
+xcrun simctl spawn "$UDID" log show --last 1h --style compact \
+  --predicate 'subsystem == "com.gdemay.lokey"' >"$ARTIFACTS/os-log.txt" 2>&1 || true
+grep -E "LokeyKeyboard|Lokey\[" "$ARTIFACTS/os-log.txt" | sed -E 's/^.*(Lokey(Keyboard)?)\[[0-9:a-f]+\] *(\[[^]]*\])? */\1: /' || tail -n 20 "$ARTIFACTS/os-log.txt"
+
 xcrun simctl io "$UDID" screenshot "$ARTIFACTS/final-state.png" || true
 mkdir -p "$ARTIFACTS/screenshots"
 xcrun xcresulttool export attachments --path "$ARTIFACTS/LokeyUITests.xcresult" --output-path "$ARTIFACTS/screenshots" || true
