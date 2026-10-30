@@ -52,6 +52,9 @@ final class PromptAndGuardTests: XCTestCase {
         let prompt = try library.render(action: "fix", text: "x", format: "lfm3")
         XCTAssertTrue(prompt.suffix.hasSuffix("<|im_start|>assistant\n<think></think>"))
         XCTAssertEqual(library.clean("<think></think>Hello.", format: "lfm3"), "Hello.")
+        // LFM3 sometimes "thinks" the answer, closes the block, then answers (CI eval, b12015).
+        XCTAssertEqual(library.clean("I received it.</think>I received it.", format: "lfm3"), "I received it.")
+        XCTAssertEqual(library.clean("<think>fix spelling</think>\n\nI received it.<|im_end|>", format: "lfm3"), "I received it.")
     }
 
     func testCleanStripsWrapperAndTokens() {

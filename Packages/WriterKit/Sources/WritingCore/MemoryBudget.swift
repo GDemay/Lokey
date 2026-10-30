@@ -66,10 +66,14 @@ public enum MemoryBudget {
         #endif
     }
 
-    /// "footprint 45.1 MB, peak 61.0 MB" for diagnostics logs.
+    /// "footprint 45.1 MB, peak 61.0 MB, available 31.9 MB" for diagnostics logs. On a device the
+    /// process limit is footprint + available (77 MB for keyboards on recent iOS, per jetsam reports);
+    /// the Simulator enforces no limit and reports none.
     public static func summary() -> String {
         func mb(_ bytes: UInt64?) -> String { bytes.map { String(format: "%.1f MB", Double($0) / 1_048_576) } ?? "n/a" }
-        return "footprint \(mb(footprintBytes())), peak \(mb(peakFootprintBytes()))"
+        var line = "footprint \(mb(footprintBytes())), peak \(mb(peakFootprintBytes()))"
+        if let available = availableBytes() { line += ", available \(mb(available))" }
+        return line
     }
 
     #if canImport(Darwin)

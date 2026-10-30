@@ -55,6 +55,8 @@ def render(prompts, fmt, messages):
 
 def clean_output(prompts, fmt, text):
     f = prompts["formats"][fmt]
+    if "</think>" in text:  # the reply follows the last </think>, as in LFM3's chat template
+        text = text.rsplit("</think>", 1)[1]
     for tok in f.get("stripTokens", []):
         text = text.replace(tok, "")
     text = text.strip()
@@ -222,6 +224,7 @@ class Runner:
         total = time.time() - t0
         return {
             "output": clean_output(self.prompts, self.fmt, "".join(out)),
+            "raw": "".join(out),
             "prompt_tokens": len(ids),
             "gen_tokens": n,
             "ttft_s": ttft or total,
@@ -255,6 +258,7 @@ class ServerRunner:
         t = res.get("timings", {})
         return {
             "output": clean_output(self.prompts, self.fmt, res["content"]),
+            "raw": res["content"],
             "prompt_tokens": res.get("tokens_evaluated", 0),
             "gen_tokens": t.get("predicted_n", 0),
             "ttft_s": t.get("prompt_ms", 0) / 1000.0,

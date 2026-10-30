@@ -95,8 +95,13 @@ public struct PromptLibrary: Codable, Sendable {
     }
 
     /// Removes template artifacts the model may echo back (special tokens, the <text> wrapper).
+    /// As in LFM3's chat template, the reply is what follows the last `</think>`: a model that
+    /// "thinks" its answer despite the empty think block would otherwise appear twice.
     public func clean(_ output: String, format: String) -> String {
         var text = output
+        if let end = text.range(of: "</think>", options: .backwards) {
+            text = String(text[end.upperBound...])
+        }
         for token in formats[format]?.stripTokens ?? [] {
             text = text.replacingOccurrences(of: token, with: "")
         }
