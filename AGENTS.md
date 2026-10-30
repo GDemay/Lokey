@@ -53,17 +53,23 @@ Key files:
 
 ## 3. Invariants: do not break these
 
-- **Keyboard memory (~48–77 MB jetsam limit).** The keyboard runs the model in-process.
-  `LlamaGenerator.Configuration.keyboard` must keep:
+- **Keyboard memory (77 MB hard limit on recent iOS).** iOS kills the extension as soon as its
+  `phys_footprint` crosses the limit (jetsam reports and kernel logs: 77 MB on iOS 18+, 66 MB on
+  iOS 12–14; the Simulator enforces nothing). Memory-mapped weights are clean pages and don't count.
+  The keyboard runs the model in-process. `LlamaGenerator.Configuration.keyboard` must keep:
   - weights memory-mapped (`LLAMA_LOAD_MODE_MMAP`) with **no weight repacking**
     (`use_extra_bufts = false`). Repacking copies weights into counted memory.
   - **no Metal** (`allowsMetal = false` → `GGML_METAL_DEVICES=0` before `llama_backend_init`).
     Creating the Metal device and compiling shaders roughly doubled the footprint (70 → 37 MB).
-  - small context and micro-batch (`n_ctx 1024`, `n_ubatch 32`). The micro-batch dominates compute buffers.
+  - small context, micro-batch and KV cache (`n_ctx 1024`, `n_ubatch 16`, q8_0 KV with flash attention).
+    The compute buffer is mostly the vocabulary logits for one micro-batch.
   - at most one model loaded (`KeyboardEngine` releases the old one first).
 
-  Check any change with `testKeyboardMemoryFootprint`. On macOS it reports `phys_footprint`, which
-  is what iOS enforces. Current: 37.5 MB (1.2B), 35.3 MB (350M).
+  Check any change with `testKeyboardMemoryFootprint`. It reports what inference *adds* to a process
+  (load, prewarm and request stages), not the extension's total. On Linux: 35.1 MB (1.2B), 33.9 MB
+  (350M); ~20 MB of it is llama.cpp's tokenizer tables, the same for every model. On macOS CI it reports
+  `phys_footprint`, which varies by ~5 MB between runner machines. The extension's own footprint and
+  peak are in the diagnostics log (`Diagnostics`, subsystem `com.gdemay.lokey`) and in Settings.
 - **Never write an unrelated edit into the user's text.** `OutputGuard` rejects outputs that look
   like an answer rather than an edit:
   - assistant openers ("Sure, …");
@@ -170,68 +176,69 @@ Integration-test environment variables:
 Verified:
 - **Unit tests:** core unit + parity tests pass on Linux and macOS.
 - **Real-model integration tests:** pass on Linux, on Apple Silicon (macOS CI) and inside the iOS 26.2 Simulator.
-- **Accuracy:** LFM2.5-1.2B (default) gets 77.1% of the 70 keyboard cases right with 0 harmful
-  edits; JFLEG GLEU is 53.7 versus 35.9 for no edit (`docs/BENCHMARK.md`).
-- **Apple Silicon CPU (DotProd build):** 313 ms mean / 383 ms p90 per sentence; keyboard `phys_footprint` 37.1 MB.
-- **iOS 26.2 Simulator (DotProd build):** 388 ms mean / 557 ms p90 per sentence, 52 tok/s decode.
-- **iOS 26.2 Simulator (iPhone 17 Pro):**
-  - the app and keyboard extension build, install and run with the real model;
-  - UI tests pass for screens, the in-app editor Fix → Replace flow, the in-app keyboard
-    Fix → Apply flow, and autocorrect-as-you-type with Undo.
+- **Accuracy:** LFM2.5-1.2B (default) gets 77.1–78.6% of the 70 keyboard cases right with 0 harmful
+  edits; JFLEG GLEU is 53.8 versus 35.9 for no edit (`docs/BENCHMARK.md`).
+- **Speed (DotProd build, keyboard profile):** 295–313 ms mean per sentence on Apple Silicon CPU,
+  354–388 ms in the iOS 26.2 Simulator; the first Fix after the keyboard prewarms its prompt takes 0.22 s.
+- **Keyboard memory:** inference adds 35.1 MB (1.2B) / 33.9 MB (350M) on Linux with the q8_0 KV
+  cache. The extension itself, in the Simulator's Debug build before that change: 31–48 MB before the
+  model, 81.6 MB after loading it, 91.6 MB peak (`docs/BENCHMARK.md`).
+- **iOS 26.2 Simulator (iPhone 17 Pro), all 5 UI tests pass:**
+  - screens render; in-app editor Fix → Replace; in-app keyboard Fix → Apply;
+    autocorrect-as-you-type with Undo;
+  - **the real system keyboard** (`test05`): added through the Settings app, switched to with the
+    globe key, typed into, Fix → Apply ("she have two brothers" → "She has two brothers").
+- **Diagnostics:** the app and the keyboard log model load, prewarm and every request (tokens,
+  cached tokens, timings, footprint, peak, and on a device the memory left before the limit) to the
+  system log, never text. `scripts/ci/ios-e2e.sh` prints them; on an iPhone use Console.app with
+  subsystem `com.gdemay.lokey`.
 
 Not verified / open:
-- **Physical iPhone:** jetsam behaviour, real latency, and whether the keyboard can read the App
-  Group without Full Access (it currently requests Full Access).
-- **Real system keyboard via Settings** (`test05`): best effort, not yet passing.
+- **Physical iPhone:** whether the extension stays under 77 MB (Simulator Debug footprints run tens
+  of MB above device Release builds, so the 92 MB peak above doesn't settle it), real latency, and
+  App Group access without Full Access.
+- **`test05` with Full Access granted:** the test used to tap the switch's label, so it ran without
+  Full Access (the Simulator still let it read the App Group). It now taps the switch itself and
+  prints `METRIC system_keyboard_full_access`; check the next CI run.
+- **LFM3:** its first CI eval (34%) was a harness bug (duplicated answers, see `docs/BENCHMARK.md`);
+  the fix is in, its real score comes from the next `eval.yml` run.
 - **App Store:** not submitted. No developer account or signing team is configured.
 
 ## 7. Next steps (prioritized)
 
-0. **Inference stack (decided, `docs/INFERENCE.md`):** keep llama.cpp. It is the only runtime that
+1. **Device validation (most important).** Install a Release build on an A13+ iPhone (iOS 26) and
+   watch Console.app (subsystem `com.gdemay.lokey`): every line has `footprint`, `peak` and
+   `available` (footprint + available = the real limit). Settings shows the keyboard's last peak.
+   - If the peak gets near the limit: drop the snapshot cache to 1 prefix (`maxCachedPrefixes`),
+     use the 350M model in the keyboard, or move inference into the app (other keyboards do: the
+     extension then only types).
+   - Check latency, memory warnings, and host apps that truncate context (WhatsApp, Telegram,
+     Signal, Mail).
+   - **Full Access may not be needed:** Apple's open-access documentation says a keyboard without it
+     has read-only access to the containing app's shared container, which is all model loading
+     needs (status reporting writes, so it would be skipped). Try `RequestsOpenAccess = false`.
+2. **Inference stack (decided, `docs/INFERENCE.md`):** keep llama.cpp. It is the only runtime that
    fits a keyboard extension (memory-mapped weights, CPU, LFM3 support, MIT). Ranked next work:
    - **Input-copy speculative decoding** on the C API with `n_rs_seq` rollback: the output mostly
      copies the input. Estimated 1.3–1.7× end to end; about 150–250 lines.
    - **Prefill the sentence while the user types.**
    - **Persistent threadpool and warm-up.**
-   - **q8_0 KV cache.**
    - **Per-device model choice.**
    - **Optional Apple Foundation Models backend experiment.**
-1. **CPU tuning on Apple builds.**
-   - **Resolved cause of the 27 s in-app fixes:** the old app profile used weight repacking with
-     512-token micro-batches. On Apple builds that was 5–10× slower than the keyboard profile:
-     10.7 vs 101 tok/s prefill and 6.6 vs 23 tok/s decode, inside the iOS Simulator.
-     Fixed by building llama.cpp with DotProd; with it, repacking became the fastest path, so
-     `Configuration.app` now repacks (0.34 s per fix in the Simulator), while the keyboard must not.
-   - **The iOS slice itself is fine:** the 70-case eval in the Simulator matches macOS
-     (490 ms mean per sentence).
-   - **Done:** the iOS slices are now built with DotProd/fp16 and BLAS off (iOS 26 minimum).
-     Upstream's Simulator and macOS slices were `arm64;x86_64`, which compiled no ARM kernels at all.
-   - **Next:** use `testThroughputProfiles` (keyboard, app, app_ubatch128, repack_ubatch512) to tune
-     micro-batch size, then measure the DotProd build on a device (`DOTPROD = 1` in
-     `llama_print_system_info()`).
-2. **Inference stack review.** Compare llama.cpp with alternatives (MLX, ExecuTorch, ONNX Runtime,
-   Core ML/ANE, LiteRT-LM) under the keyboard constraints: memory-mapped weights, no GPU in the
-   extension, LFM2/LFM3 support, OSI license. Highest expected in-stack win: prompt-lookup (n-gram)
-   speculative decoding, because corrections mostly copy the input; also check Liquid's DSpark
-   drafters. LFM's hybrid memory needs `n_rs_seq` rollback support for speculative decoding.
-3. **LFM3 decision.**
-   - Read the `eval.yml` report for `lfm3-1.7b-q4` (run with `<think></think>`).
-   - Make it the default only if it clearly beats LFM2.5-1.2B on accuracy at acceptable CPU latency
-     and fits the keyboard footprint.
-4. **Device validation.** Run on an A13+ iPhone. Check the keyboard footprint
-   (`KeyboardStatus.footprintMB` in Settings), latency, memory warnings, and host apps that truncate
-   context (WhatsApp, Telegram, Signal, Mail). Also try `RequestsOpenAccess = false` with a
-   read-only App Group.
-5. **Quality.**
+   - Done: DotProd/fp16 arm64 slices with BLAS off (1.6× faster), app profile with weight
+     repacking (0.34 s per fix in the Simulator), q8_0 KV cache and 16-token micro-batches in the
+     keyboard (−9 MB, accuracy unchanged).
+3. **LFM3 decision.** Read the next `eval.yml` report for `lfm3-1.7b-q4` (raw outputs are now in
+   the JSON). Make it the default only if it clearly beats LFM2.5-1.2B on accuracy at acceptable CPU
+   latency (it was 1.8× slower on the CI CPU) and fits the keyboard footprint.
+4. **Quality.**
    - LoRA fine-tune of LFM2.5-350M/1.2B on permissively licensed GEC data.
    - Weakest categories: ESL constructions (56%) and homophones.
    - Add a guard for pronoun/person changes ("We need" → "I need").
    - Grow `eval/keyboard_cases.jsonl` with every bug you fix.
-6. **System keyboard E2E** (`UITests/LokeyUITests.swift test05`): make the Settings automation
-   reliable on iOS 26 and query keys via `XCUIApplication(bundleIdentifier: "com.gdemay.lokey.keyboard")`.
-7. **Product.**
+5. **Product.**
    - App Store prep: team, App Group, privacy label "Data Not Collected", screenshots, review notes
-     explaining Full Access.
+     explaining Full Access (or dropping it, see 1).
    - Background model downloads.
    - An Apple Foundation Models engine option on iOS 26 devices with Apple Intelligence.
    - More languages, iPad layout.

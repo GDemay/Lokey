@@ -34,9 +34,10 @@ Keyboard extension (UIInputViewController + SwiftUI)
   Hugging Face revision + SHA-256), shared with the keyboard through the App Group.
 - **Fast**: the fixed part of each prompt is evaluated once and its state snapshotted;
   each request only evaluates the user's text (prefill 1.44 s → 0.12 s measured).
-- **Fits in a keyboard**: weights are memory-mapped (not counted by iOS), llama.cpp runs
-  CPU-only with small buffers: ~42 MB of anonymous memory for the 1.2B model, measured on
-  Linux; CI measures the macOS `phys_footprint` (see `testKeyboardMemoryFootprint`).
+- **Fits in a keyboard** (iOS kills keyboards above 77 MB): weights are memory-mapped (clean
+  pages, not counted), llama.cpp runs CPU-only with a q8_0 KV cache and small buffers, adding
+  ~35 MB for the 1.2B model (`testKeyboardMemoryFootprint`). The keyboard logs its own footprint
+  and peak; it still has to be confirmed on an iPhone.
 - **Safe**: a deterministic output guard rejects outputs that answer the text instead of
   correcting it (`"can you explain…"` → `"Sure, I'd be happy to…"`), copy words from the
   prompt examples, or change too much. A rejection means "no suggestion", never a bad edit.
@@ -82,8 +83,9 @@ Linux (core + llama.cpp integration): `LLAMA_PREFIX=<dir with include/llama.h, l
 ## Privacy
 
 The keyboard asks for Full Access only so it can read the model file the app downloaded into the
-shared App Group container (older Apple documentation requires Full Access for this; whether a
-read-only container works without it on iOS 26 still has to be verified on a device). Lokey has
+shared App Group container. Apple's current documentation says keyboards without Full Access get
+read-only access to that container, which would be enough; this still has to be verified on a
+device before dropping the request. Lokey has
 no backend; the keyboard makes no network requests; the app only downloads model files from
 Hugging Face.
 

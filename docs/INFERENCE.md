@@ -29,7 +29,7 @@ On the iPhone GPU, uzu, MLX Swift and LiteRT-LM decode about 3–60% faster than
 - it has no LFM3 support, or
 - its license is not OSI.
 
-The newer Apple paths (Core AI, and Core ML on the ANE) don't fit in 48–77 MB either. Since iOS 27, Neural Engine memory counts against the app. Liquid AI has itself deprecated its LEAP SDK and now tells iOS developers to call llama.cpp's xcframework directly.
+The newer Apple paths (Core AI, and Core ML on the ANE) don't fit in a keyboard's 77 MB either. Since iOS 27, Neural Engine memory counts against the app. Liquid AI has itself deprecated its LEAP SDK and now tells iOS developers to call llama.cpp's xcframework directly.
 
 - **Keyboard extension: keep llama.cpp (CPU-only, memory-mapped QAD Q4_0) and rebuild it.** The fact-check disassembled the iOS slice of the official b12017 xcframework.
   - It contains 0 `sdot` and 0 `smmla` instructions. The macOS slice of the same file has 153 `sdot`.
@@ -308,7 +308,7 @@ On iPhone, the stock build is probably slower than the Mac figure suggests today
 - Build C with `use_extra_bufts` true vs false: about +660 MB vs 0.
 - n_ctx 1024 with F16 vs q8_0 KV.
 - Speculative decoding with K = 8, 16 and 24.
-- Gate: the whole stack's anonymous peak leaves at least 10 MB of headroom below 48 MB.
+- Gate: the whole stack's anonymous peak leaves at least 10 MB of headroom below the 77 MB keyboard limit (66 MB on iOS 12–14).
 
 **E4. Cost of a verify batch.**
 - After restoring the prefix and adding a 40-token sentence, time `llama_decode` for k = 1, 2, 4, 8, 12, 16 and 24 with logits on every position, on builds A and C, at 2 and 3 threads.
