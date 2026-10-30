@@ -1,0 +1,60 @@
+# Model quality/latency eval on official llama.cpp binaries (Linux CPU).
+# Runs when prompts, the model catalog or the harness change.
+name: eval
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "eval/**"
+      - "Packages/WriterKit/Sources/WritingCore/Resources/**"
+      - "scripts/ci/eval-server.sh"
+  pull_request:
+    paths:
+      - "eval/**"
+      - "Packages/WriterKit/Sources/WritingCore/Resources/**"
+      - "scripts/ci/eval-server.sh"
+  workflow_dispatch:
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  LLAMA_TAG: b12015
+
+jobs:
+  eval:
+    name: Model eval (llama.cpp, Linux CPU)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .models
+          key: eval-models-${{ hashFiles('Packages/WriterKit/Sources/WritingCore/Resources/models.json') }}
+      - name: Fetch models
+        run: scripts/fetch-model.sh lfm3-1.7b-q4 lfm2.5-1.2b-instruct-q4 lfm2.5-350m-q4 lfm2.5-230m-q4
+      - name: Fetch llama.cpp ${{ env.LLAMA_TAG }} (official release binaries)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/llama && cd /tmp/llama
+          gh release download "$LLAMA_TAG" --repo ggml-org/llama.cpp --pattern '*bin-ubuntu-x64.*'
+          for f in *; do case "$f" in *.zip) unzip -q "$f" ;; *.tar.gz) tar xzf "$f" ;; esac; done
+          server="$(find /tmp/llama -type f -name llama-server | head -n 1)"
+          "$server" --version
+          echo "LLAMA_SERVER=$server" >> "$GITHUB_ENV"
+      - name: Evaluate correction quality and latency
+        run: |
+          THREADS=4 JFLEG_N=150 scripts/ci/eval-server.sh lfm2.5-1.2b-instruct-q4 lfm2.5-350m-q4 lfm2.5-230m-q4 lfm3-1.7b-q4
+          cat artifacts/eval/REPORT.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: artifacts/eval

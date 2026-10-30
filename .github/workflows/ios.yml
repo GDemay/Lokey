@@ -1,0 +1,99 @@
+name: ios
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  LLAMA_TAG: b12015
+
+jobs:
+  ios:
+    name: iOS app (build, tests, Simulator E2E)
+    # macos-15 ships Xcode 26 and iOS 26 Simulators; macos-26 may be unavailable on some plans.
+    runs-on: macos-15
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+          [ -n "$xcode" ] || xcode="$(ls -d /Applications/Xcode_*.app | sort -V | tail -n 1)"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          xcrun simctl list runtimes
+          brew install xcodegen
+      - name: Restore llama.xcframework
+        id: llama-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: Packages/WriterKit/Vendor
+          key: llama-xcframework-${{ env.LLAMA_TAG }}-source-v1
+      - name: Restore models
+        id: models-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .models
+          key: ios-models-${{ hashFiles('Packages/WriterKit/Sources/WritingCore/Resources/models.json') }}
+      - name: Build llama.xcframework (device + Simulator + macOS) and fetch models
+        run: |
+          scripts/bootstrap.sh
+          scripts/fetch-model.sh lfm2.5-1.2b-instruct-q4 lfm2.5-350m-q4
+      # Saved right away so a later failure doesn't force a ~10 min rebuild next time.
+      - name: Save llama.xcframework
+        if: steps.llama-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: Packages/WriterKit/Vendor
+          key: llama-xcframework-${{ env.LLAMA_TAG }}-source-v1
+      - name: Save models
+        if: steps.models-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .models
+          key: ios-models-${{ hashFiles('Packages/WriterKit/Sources/WritingCore/Resources/models.json') }}
+      - name: WriterKit tests (macOS, real model + eval through the Swift pipeline)
+        working-directory: Packages/WriterKit
+        run: |
+          mkdir -p ../../artifacts
+          set +e
+          LOKEY_TEST_MODEL="$PWD/../../.models/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf" \
+          LOKEY_EVAL_CASES="$PWD/../../eval/keyboard_cases.jsonl" \
+          LOKEY_EVAL_OUT="$PWD/../../artifacts/swift-eval-1.2b.json" \
+            swift test >../../artifacts/swift-test.log 2>&1
+          status=$?
+          set -e
+          grep -E "error:|failed|METRIC|Executed" ../../artifacts/swift-test.log || tail -n 60 ../../artifacts/swift-test.log
+          exit $status
+      - name: Keyboard memory footprint (phys_footprint, each model in a fresh process)
+        working-directory: Packages/WriterKit
+        run: |
+          for m in LFM2.5-350M-QAD-Q4_0 LFM2.5-1.2B-Instruct-QAD-Q4_0; do
+            LOKEY_TEST_MODEL="$PWD/../../.models/$m.gguf" swift test --skip-build --filter testKeyboardMemoryFootprint 2>&1 | grep -E "METRIC|error|passed|failed"
+          done | tee ../../artifacts/footprint.log
+      - name: iOS Simulator end-to-end (app + keyboard extension + on-device model)
+        run: MODEL_FILE="$PWD/.models/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf" scripts/ci/ios-e2e.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-e2e
+          path: |
+            artifacts/screenshots
+            artifacts/*.png
+            artifacts/*.log
+            artifacts/*.json
+            artifacts/*.plist
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-xcresult
+          path: artifacts/LokeyUITests.xcresult

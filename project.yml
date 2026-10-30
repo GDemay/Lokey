@@ -1,0 +1,121 @@
+# Generate the Xcode project with:  xcodegen generate   (brew install xcodegen)
+name: Lokey
+options:
+  bundleIdPrefix: com.gdemay
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+packages:
+  WriterKit:
+    path: Packages/WriterKit
+
+targets:
+  Lokey:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    dependencies:
+      - package: WriterKit
+        product: WritingCore
+      - package: WriterKit
+        product: LlamaRuntime
+      - package: WriterKit
+        product: KeyboardUI
+      - target: LokeyKeyboard
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Lokey
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        ITSAppUsesNonExemptEncryption: false
+    entitlements:
+      path: App/Lokey.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.gdemay.lokey]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gdemay.lokey
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+
+  LokeyKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Keyboard
+    dependencies:
+      - package: WriterKit
+        product: WritingCore
+      - package: WriterKit
+        product: LlamaRuntime
+      - package: WriterKit
+        product: KeyboardUI
+    info:
+      path: Keyboard/Info.plist
+      properties:
+        CFBundleDisplayName: Lokey
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+          NSExtensionAttributes:
+            IsASCIICapable: true
+            PrefersRightToLeft: false
+            PrimaryLanguage: en-US
+            RequestsOpenAccess: true
+    entitlements:
+      path: Keyboard/LokeyKeyboard.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.gdemay.lokey]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gdemay.lokey.keyboard
+        APPLICATION_EXTENSION_API_ONLY: YES
+        # llama.framework is embedded once, in the app; the extension finds it two levels up.
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+
+  LokeyUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: Lokey
+    settings:
+      base:
+        TEST_TARGET_NAME: Lokey
+        PRODUCT_BUNDLE_IDENTIFIER: com.gdemay.lokey.uitests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Lokey:
+    build:
+      targets:
+        Lokey: all
+        LokeyKeyboard: all
+        LokeyUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - LokeyUITests
+      gatherCoverageData: false
+    run:
+      config: Debug

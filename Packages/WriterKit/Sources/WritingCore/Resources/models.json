@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "defaultModelID": "lfm2.5-1.2b-instruct-q4",
+  "models": [
+    {
+      "id": "lfm2.5-1.2b-instruct-q4",
+      "name": "LFM2.5 1.2B Instruct",
+      "family": "Liquid LFM2.5",
+      "parameters": "1.2B",
+      "format": "chatml",
+      "file": "LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf",
+      "url": "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/8ed288026e23958ad9dfa92d53ed773a8eee7125/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf",
+      "sizeBytes": 695755488,
+      "sha256": "bb741ebb106d543e9de114b843a3d3d73d51c74b5801e69da2abde821a0cb3e1",
+      "license": "LFM Open License v1.0",
+      "licenseURL": "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct/blob/main/LICENSE",
+      "tier": "balanced",
+      "summary": "Best accuracy for everyday fixes. Recommended for iPhone 13 and newer."
+    },
+    {
+      "id": "lfm2.5-350m-q4",
+      "name": "LFM2.5 350M",
+      "family": "Liquid LFM2.5",
+      "parameters": "350M",
+      "format": "chatml",
+      "file": "LFM2.5-350M-QAD-Q4_0.gguf",
+      "url": "https://huggingface.co/LiquidAI/LFM2.5-350M-GGUF/resolve/657e078c94084481950a2d555a941481f715536b/LFM2.5-350M-QAD-Q4_0.gguf",
+      "sizeBytes": 219312832,
+      "sha256": "3d10b6ab8fc91a919534b9558e266255aca0bbc7f6d015963599aa9e74e05b1d",
+      "license": "LFM Open License v1.0",
+      "licenseURL": "https://huggingface.co/LiquidAI/LFM2.5-350M/blob/main/LICENSE",
+      "tier": "fast",
+      "summary": "About 3x faster and a quarter of the size. Catches common typos and caps; misses more grammar."
+    },
+    {
+      "id": "lfm3-1.7b-q4",
+      "name": "LFM3 1.7B",
+      "family": "Liquid LFM3",
+      "parameters": "1.7B",
+      "format": "lfm3",
+      "file": "LFM3-1.7B-QAD-Q4_0.gguf",
+      "url": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/resolve/bad5729bba61d076fff20d2548e62526665af215/LFM3-1.7B-QAD-Q4_0.gguf",
+      "sizeBytes": 1049615680,
+      "sha256": "43a7d09a0e9cba91b63eb7052488b9564569bddfd65754d2e426465e572a7452",
+      "license": "LFM Open License v1.0",
+      "licenseURL": "https://huggingface.co/LiquidAI/LFM3-1.7B/blob/main/LICENSE",
+      "tier": "large",
+      "summary": "Liquid's newest generation, run with thinking disabled. Larger and slower; for recent iPhones."
+    },
+    {
+      "id": "lfm2.5-230m-q4",
+      "name": "LFM2.5 230M",
+      "family": "Liquid LFM2.5",
+      "parameters": "230M",
+      "format": "chatml",
+      "file": "LFM2.5-230M-QAD-Q4_0.gguf",
+      "url": "https://huggingface.co/LiquidAI/LFM2.5-230M-GGUF/resolve/03502067c64ce32ac4fe87b0cec0310a1a13d3e9/LFM2.5-230M-QAD-Q4_0.gguf",
+      "sizeBytes": 149081056,
+      "sha256": "e75f83268de11b2a1bcfab5f3b5c5c0c97569ddbbc0990aad88437e45b8ba292",
+      "license": "LFM Open License v1.0",
+      "licenseURL": "https://huggingface.co/LiquidAI/LFM2.5-230M/blob/main/LICENSE",
+      "tier": "tiny",
+      "summary": "Smallest and fastest. Capitalization and simple typos only; for older devices."
+    }
+  ]
+}
