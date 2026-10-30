@@ -201,8 +201,9 @@ Not verified / open:
 - **Physical iPhone:** whether the extension stays under 77 MB (Simulator Debug footprints run tens
   of MB above device Release builds, so the 83 MB Simulator peak doesn't settle it; ~48 MB of it is
   the keyboard UI), real latency, and App Group access without Full Access.
-- **LFM3:** its first CI eval (34%) was a harness bug (duplicated answers, see `docs/BENCHMARK.md`);
-  the fix is in, its real score comes from the next `eval.yml` run.
+- **LFM3-1.7B (decided: optional, not the default):** 64.3% of the keyboard cases, 0 harmful, JFLEG
+  GLEU 44.2, 1.66× slower than LFM2.5-1.2B (77.1%, 53.8) on the CI CPU. Its first CI eval (34%) was a
+  harness bug, fixed (duplicated answers around `</think>`, `docs/BENCHMARK.md`).
 - **App Store:** not submitted. No developer account or signing team is configured.
 
 ## 7. Next steps (prioritized)
@@ -231,9 +232,10 @@ Not verified / open:
    - Done: DotProd/fp16 arm64 slices with BLAS off (1.6× faster), app profile with weight
      repacking (0.34 s per fix in the Simulator), q8_0 KV cache and 16-token micro-batches in the
      keyboard (−9 MB, accuracy unchanged).
-3. **LFM3 decision.** Read the next `eval.yml` report for `lfm3-1.7b-q4` (raw outputs are now in
-   the JSON). Make it the default only if it clearly beats LFM2.5-1.2B on accuracy at acceptable CPU
-   latency (it was 1.8× slower on the CI CPU) and fits the keyboard footprint.
+3. **LFM3.** Decided for now: LFM2.5-1.2B stays the default (77.1% vs 64.3%, 1.66× faster). LFM3
+   appends explanations ("(Note: …)", all 12 of its guard rejections) and leaves some grammar errors
+   unchanged. To retry: stop at " (Note:", add LFM3-specific few-shot examples, re-run `eval.yml`
+   (raw generations are in the report JSON).
 4. **Quality.**
    - LoRA fine-tune of LFM2.5-350M/1.2B on permissively licensed GEC data.
    - Weakest categories: ESL constructions (56%) and homophones.

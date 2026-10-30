@@ -139,12 +139,26 @@ a prefix with LFM's hybrid memory); the app does not (see above).
 | LFM2.5-230M | 149 | 45.7% | 0 | 6 | 448 | 40.0 |
 | LFM3-1.7B (thinking off) | 1050 | 34.3% | 1 | 44 | 3917 | 28.6 |
 
-The LFM3 row measures a harness bug, not the model: almost every output was the correction twice
-("I received your message yesterday.I received your message yesterday."). LFM3 sometimes writes its
-answer inside the prefilled empty think block, closes it and answers again; the cleaner removed the
-tags but kept both copies. Its chat template keeps only what follows the last `</think>`, and the
-app and harness now do the same. The next `eval.yml` run gives LFM3's real score (with raw outputs
-stored in the report). On this CPU it is 1.8× slower than LFM2.5-1.2B per sentence.
+That LFM3 row measured a harness bug, not the model: almost every output was the correction twice
+("I received your message yesterday.I received your message yesterday."). LFM3 often writes its
+answer inside the prefilled empty think block, closes it and answers again (raw output:
+`I received your message yesterday.</think>I received your message yesterday.`); the cleaner removed
+the tags but kept both copies. Its chat template keeps only what follows the last `</think>`, and the
+app and harness now do the same. Re-run with the fix (same day, same binaries):
+
+| Model | Size (MB) | Keyboard cases correct | Harmful | Guard rejections | Mean ms | JFLEG GLEU (no edit 35.9) |
+|---|---|---|---|---|---|---|
+| LFM2.5-1.2B-Instruct | 696 | **77.1%** | 0 | 8 | 2803 | **53.8** |
+| LFM3-1.7B (thinking off) | 1050 | 64.3% | 0 | 12 | 4654 | 44.2 |
+| LFM2.5-350M | 219 | 60.0% | 0 | 5 | 841 | 42.1 |
+| LFM2.5-230M | 149 | 45.7% | 0 | 6 | 516 | 40.0 |
+
+By category LFM3 wins on long (100%), informal (100%) and typo (90%) cases and loses badly on
+grammar (30%) and homophones (33%). All 12 of its guard rejections are explanations appended to
+the sentence ("She has two brothers. (Note: "She" is singular, …)"); several grammar errors come
+back unchanged. It is 1.66× slower than LFM2.5-1.2B and 50% bigger, so **LFM2.5-1.2B stays the
+default** and LFM3 stays an option. A stop sequence on " (Note:" and LFM3-specific examples might
+recover some cases; they would need their own eval run.
 
 ## Prompt engineering (LFM2.5-350M, keyboard cases)
 
