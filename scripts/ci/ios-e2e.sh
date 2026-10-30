@@ -72,8 +72,8 @@ grep -E "Test Case|error:|[Ss]kipped|TEST (SUCCEEDED|FAILED)" "$ARTIFACTS/test.l
 
 # Diagnostics from the app and the keyboard extension (timings, token counts, memory; no text).
 xcrun simctl spawn "$UDID" log show --last 1h --style compact \
-  --predicate 'subsystem == "com.gdemay.lokey"' >"$ARTIFACTS/os-log.txt" 2>&1 || true
-grep -E "LokeyKeyboard|Lokey\[" "$ARTIFACTS/os-log.txt" | sed -E 's/^.*(Lokey(Keyboard)?)\[[0-9:a-f]+\] *(\[[^]]*\])? */\1: /' || tail -n 20 "$ARTIFACTS/os-log.txt"
+  --predicate 'subsystem == "com.gdemay.lokey"' >"$ARTIFACTS/os-log.log" 2>&1 || true
+grep -E "LokeyKeyboard|Lokey\[" "$ARTIFACTS/os-log.log" | sed -E 's/^.*(Lokey(Keyboard)?)\[[0-9:a-f]+\] *(\[[^]]*\])? */\1: /' || tail -n 20 "$ARTIFACTS/os-log.log"
 
 xcrun simctl io "$UDID" screenshot "$ARTIFACTS/final-state.png" || true
 mkdir -p "$ARTIFACTS/screenshots"

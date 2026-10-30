@@ -64,6 +64,7 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         Diagnostics.log("keyboard memory warning; " + MemoryBudget.summary())
+        reportStatus(modelName: nil)
         controller.releaseEngine()
         KeyboardEngine.shared.release()
     }
