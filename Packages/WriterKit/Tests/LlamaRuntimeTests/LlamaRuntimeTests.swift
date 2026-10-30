@@ -90,7 +90,16 @@ final class LlamaRuntimeTests: XCTestCase {
         let path = try modelPath()
         let library = try PromptLibrary.bundled()
         let text = "i dont think their coming tomorow because its raining and the roads is closed"
-        for (name, config) in [("keyboard", LlamaGenerator.Configuration.keyboard), ("app", LlamaGenerator.Configuration.app)] {
+        var repack = LlamaGenerator.Configuration.app
+        repack.repackWeights = true
+        repack.batchSize = 512
+        repack.microBatchSize = 512
+        var ubatch128 = LlamaGenerator.Configuration.app
+        ubatch128.microBatchSize = 128
+        let profiles: [(String, LlamaGenerator.Configuration)] = [
+            ("keyboard", .keyboard), ("app", .app), ("app_ubatch128", ubatch128), ("repack_ubatch512", repack),
+        ]
+        for (name, config) in profiles {
             let generator = try LlamaGenerator(modelPath: path, format: format, configuration: config)
             let prompt = try library.render(action: "fix", text: text, format: format)
             let cold = try await generator.generate(prompt, maxTokens: 48, onPartial: nil)

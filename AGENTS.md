@@ -160,14 +160,14 @@ Integration-test environment variables:
 
 Verified:
 - **Unit tests:** core unit + parity tests pass on Linux and macOS.
-- **Real-model integration tests:** pass on Linux and on Apple Silicon (macOS CI).
+- **Real-model integration tests:** pass on Linux, on Apple Silicon (macOS CI) and inside the iOS 26.2 Simulator.
 - **Accuracy:** LFM2.5-1.2B (default) gets 77.1% of the 70 keyboard cases right with 0 harmful
   edits; JFLEG GLEU is 53.7 versus 35.9 for no edit (`docs/BENCHMARK.md`).
 - **Apple Silicon CPU:** 483 ms mean / 603 ms p90 per sentence; keyboard `phys_footprint` 37.5 MB.
 - **iOS 26.2 Simulator (iPhone 17 Pro):**
   - the app and keyboard extension build, install and run with the real model;
-  - UI tests pass for screens, the in-app keyboard Fix → Apply flow, and autocorrect-as-you-type
-    with Undo.
+  - UI tests pass for screens, the in-app editor Fix → Replace flow, the in-app keyboard
+    Fix → Apply flow, and autocorrect-as-you-type with Undo.
 
 Not verified / open:
 - **Physical iPhone:** jetsam behaviour, real latency, and whether the keyboard can read the App
@@ -177,18 +177,16 @@ Not verified / open:
 
 ## 7. Next steps (prioritized)
 
-1. **iOS-slice performance (highest).**
-   - **Symptom:** a fix took ~27 s in the Simulator versus 0.48 s with the macOS slice on the same runner.
-   - **Suspect:** `build-xcframework.sh` builds with `GGML_NATIVE=OFF` and no ARM feature flags,
-     so the iOS slices probably lack dotprod/i8mm kernels. The app profile also routes large
-     batches through Accelerate BLAS, which dequantizes weights.
-   - **Measure first:** `ios-e2e.sh` runs `LlamaRuntimeTests.testThroughputProfiles` inside the
-     Simulator; compare with the macOS step.
-   - **Then try:**
-     - build the iOS slices with `-DGGML_CPU_ARM_ARCH=armv8.4-a+dotprod`, or `-mcpu=apple-a13`.
-       This needs A13+ devices, so raise the deployment target to iOS 26, which already requires A13+.
-     - disable BLAS for small models.
-   - **Verify on a device.**
+1. **CPU tuning on Apple builds.**
+   - **Resolved cause of the 27 s in-app fixes:** the old app profile used weight repacking with
+     512-token micro-batches. On Apple builds that was 5–10× slower than the keyboard profile:
+     10.7 vs 101 tok/s prefill and 6.6 vs 23 tok/s decode, inside the iOS Simulator.
+     `Configuration.app` now uses the same CPU settings with a larger context.
+   - **The iOS slice itself is fine:** the 70-case eval in the Simulator matches macOS
+     (490 ms mean per sentence).
+   - **Next:** use `testThroughputProfiles` (keyboard, app, app_ubatch128, repack_ubatch512) to tune
+     micro-batch size. Try building the iOS slices with ARM feature flags
+     (`-DGGML_CPU_ARM_ARCH=armv8.4-a+dotprod`; needs A13+, i.e. iOS 26) and measure on a device.
 2. **Inference stack review.** Compare llama.cpp with alternatives (MLX, ExecuTorch, ONNX Runtime,
    Core ML/ANE, LiteRT-LM) under the keyboard constraints: memory-mapped weights, no GPU in the
    extension, LFM2/LFM3 support, OSI license. Highest expected in-stack win: prompt-lookup (n-gram)

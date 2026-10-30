@@ -126,7 +126,8 @@ final class LokeyUITests: XCTestCase {
         let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
         settings.launch()
         func tapCell(_ label: String) throws {
-            let predicate = NSPredicate(format: "label == %@", label)
+            // Prefix match: iOS labels vary ("Add New Keyboard…" vs "Add New Keyboard...").
+            let predicate = NSPredicate(format: "label BEGINSWITH %@", label)
             func candidate() -> XCUIElement? {
                 for query in [settings.cells, settings.buttons, settings.staticTexts] {
                     let element = query.matching(predicate).firstMatch
@@ -151,7 +152,7 @@ final class LokeyUITests: XCTestCase {
         try tapCell("Keyboards")
         let alreadyAdded = settings.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Lokey'")).firstMatch
         if !alreadyAdded.waitForExistence(timeout: 2) {
-            try tapCell("Add New Keyboard…")
+            try tapCell("Add New Keyboard")
             try tapCell("Lokey")
         }
         screenshot("12-settings-keyboard-added")

@@ -50,8 +50,13 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
                           gpuLayers: 0, repackWeights: false, maxCachedPrefixes: 2, allowsMetal: false)
         }
 
-        /// The containing app has a normal memory budget.
-        public static var app: Configuration { Configuration() }
+        /// The containing app has more memory (bigger context, more cached prompts), but uses the
+        /// same CPU settings: on Apple builds, weight repacking with 512-token micro-batches measured
+        /// 5-10x slower than this (testThroughputProfiles: 10.7 vs 101 tok/s prefill, 6.6 vs 23 decode).
+        public static var app: Configuration {
+            Configuration(contextLength: 2048, batchSize: 256, microBatchSize: 32,
+                          repackWeights: false, maxCachedPrefixes: 6)
+        }
     }
 
     public let format: String
