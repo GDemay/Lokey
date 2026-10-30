@@ -68,7 +68,7 @@ xcodebuild test-without-building -project Lokey.xcodeproj -scheme Lokey -destina
   >"$ARTIFACTS/test.log" 2>&1
 status=$?
 set -e
-grep -E "Test Case|error:|[Ss]kipped|TEST (SUCCEEDED|FAILED)" "$ARTIFACTS/test.log" || tail -n 80 "$ARTIFACTS/test.log"
+grep -E "Test Case|METRIC|error:|[Ss]kipped|TEST (SUCCEEDED|FAILED)" "$ARTIFACTS/test.log" || tail -n 80 "$ARTIFACTS/test.log"
 
 # Diagnostics from the app and the keyboard extension (timings, token counts, memory; no text).
 xcrun simctl spawn "$UDID" log show --last 1h --style compact \

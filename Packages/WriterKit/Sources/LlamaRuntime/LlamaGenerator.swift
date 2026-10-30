@@ -23,6 +23,8 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         /// anonymous memory. Keep it off where memory is tight (keyboard extension).
         public var repackWeights: Bool
         public var maxCachedPrefixes: Int
+        /// Store the attention KV cache as q8_0 instead of f16 (half the memory, needs flash attention).
+        public var quantizedKVCache: Bool
         /// false = register no Metal device in this process (no MTLDevice, no shader compile).
         /// Only effective if this is the process's first llama.cpp use.
         public var allowsMetal: Bool
@@ -30,7 +32,8 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         public init(contextLength: Int = 2048, batchSize: Int = 512, microBatchSize: Int = 512,
                     threads: Int = Configuration.defaultThreads,
                     batchThreads: Int = Configuration.defaultBatchThreads, gpuLayers: Int = 0,
-                    repackWeights: Bool = true, maxCachedPrefixes: Int = 6, allowsMetal: Bool = true) {
+                    repackWeights: Bool = true, maxCachedPrefixes: Int = 6, quantizedKVCache: Bool = false,
+                    allowsMetal: Bool = true) {
             self.contextLength = contextLength
             self.batchSize = batchSize
             self.microBatchSize = microBatchSize
@@ -39,6 +42,7 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
             self.gpuLayers = gpuLayers
             self.repackWeights = repackWeights
             self.maxCachedPrefixes = maxCachedPrefixes
+            self.quantizedKVCache = quantizedKVCache
             self.allowsMetal = allowsMetal
         }
 
@@ -65,8 +69,9 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         /// Measured anonymous footprint for LFM2.5-1.2B: ~42 MB, vs ~89 MB with `.app`
         /// (testKeyboardMemoryFootprint; the micro-batch size dominates).
         public static var keyboard: Configuration {
-            Configuration(contextLength: 1024, batchSize: 128, microBatchSize: 32,
-                          gpuLayers: 0, repackWeights: false, maxCachedPrefixes: 2, allowsMetal: false)
+            Configuration(contextLength: 1024, batchSize: 128, microBatchSize: 16,
+                          gpuLayers: 0, repackWeights: false, maxCachedPrefixes: 2, quantizedKVCache: true,
+                          allowsMetal: false)
         }
 
         /// The containing app has gigabytes of headroom, so it can afford llama.cpp's weight repacking
@@ -128,6 +133,11 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         ctxParams.n_threads = Int32(configuration.threads)
         ctxParams.n_threads_batch = Int32(configuration.batchThreads)
         ctxParams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO
+        if configuration.quantizedKVCache {
+            ctxParams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED
+            ctxParams.type_k = GGML_TYPE_Q8_0
+            ctxParams.type_v = GGML_TYPE_Q8_0
+        }
         ctxParams.no_perf = true
         if configuration.gpuLayers == 0 {
             ctxParams.offload_kqv = false

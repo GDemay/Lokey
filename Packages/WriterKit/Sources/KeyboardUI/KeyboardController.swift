@@ -63,6 +63,8 @@ public final class KeyboardController: ObservableObject {
     @Published public var panel: Panel = .keys
     @Published public private(set) var phase: Phase = .idle
     @Published public private(set) var suggestions: [String] = []
+    /// Time from tapping an action to its result, including any model loading or queueing.
+    @Published public private(set) var lastWaitSeconds: Double?
     @Published public private(set) var liveNotice: LiveNotice?
     @Published public private(set) var engineStatus: EngineStatus = .idle
     @Published private var undoRecord: (original: String, replacement: String)?
@@ -335,6 +337,7 @@ public final class KeyboardController: ObservableObject {
             return
         }
         phase = .working(action: action, partial: "")
+        let started = Date()
         actionTask?.cancel()
         actionTask = Task {
             do {
@@ -347,6 +350,7 @@ public final class KeyboardController: ObservableObject {
                 }
                 host?.didFinishModelRequest()
                 try Task.checkCancellation()
+                lastWaitSeconds = Date().timeIntervalSince(started)
                 if !result.hasChanges {
                     phase = .message(result.rejectedChunks > 0 ? "No safe suggestion for this text." : "Looks good. Nothing to fix.")
                 } else if action == .fix && !settings.showChangesBeforeApplying {

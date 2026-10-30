@@ -75,23 +75,34 @@ final class LlamaRuntimeTests: XCTestCase {
         }
     }
 
-    /// Measures what the keyboard extension would pay in footprint to run the model.
+    /// Measures what the keyboard extension would pay in footprint to run the model, stage by stage:
+    /// model + context, prompt prewarm (state snapshot), then a request.
     func testKeyboardMemoryFootprint() async throws {
         let path = try modelPath()
-        let before = MemoryBudget.footprintBytes() ?? 0
+        func mb() -> Double { Double(MemoryBudget.footprintBytes() ?? 0) / 1_048_576 }
+        let before = mb()
         var config = LlamaGenerator.Configuration.keyboard
         if let v = env["LOKEY_CTX"].flatMap(Int.init) { config.contextLength = v }
         if let v = env["LOKEY_BATCH"].flatMap(Int.init) { config.batchSize = v }
         if let v = env["LOKEY_UBATCH"].flatMap(Int.init) { config.microBatchSize = v }
+        if let v = env["LOKEY_KV_Q8"] { config.quantizedKVCache = v == "1" }
         let generator = try LlamaGenerator(modelPath: path, format: format, configuration: config)
+        let loaded = mb()
         let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
+        await assistant.prewarm()
+        let prewarmed = mb()
         _ = try await assistant.run(actionID: "fix", text: String(repeating: "i dont think their coming tomorow because its raining. ", count: 4))
-        let after = MemoryBudget.footprintBytes() ?? 0
-        let deltaMB = Double(after &- before) / 1_048_576
+        let after = mb()
+        let deltaMB = after - before
         let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.doubleValue ?? 0
         let peak = MemoryBudget.peakFootprintBytes().map { Double($0) / 1_048_576 } ?? -1
         print(String(format: "METRIC keyboard_footprint_delta_mb=%.1f before_mb=%.1f after_mb=%.1f peak_mb=%.1f model_file_mb=%.1f",
-                     deltaMB, Double(before) / 1_048_576, Double(after) / 1_048_576, peak, size / 1_048_576))
+                     deltaMB, before, after, peak, size / 1_048_576))
+        // How much of it is freed heap the allocator still holds (would a pressure relief help?).
+        MemoryBudget.releaseFreeMemory()
+        print(String(format: "METRIC keyboard_footprint_stages load_mb=+%.1f prewarm_mb=+%.1f request_mb=+%.1f released_mb=-%.1f ctx=%d ubatch=%d kv_q8=%d",
+                     loaded - before, prewarmed - loaded, after - prewarmed, after - mb(), config.contextLength,
+                     config.microBatchSize, config.quantizedKVCache ? 1 : 0))
         // Weights are memory-mapped: the footprint must not grow with the model file.
         XCTAssertLessThan(deltaMB, 120)
     }
@@ -101,11 +112,11 @@ final class LlamaRuntimeTests: XCTestCase {
         let path = try modelPath()
         let library = try PromptLibrary.bundled()
         let text = "i dont think their coming tomorow because its raining and the roads is closed"
-        var keyboardUbatch128 = LlamaGenerator.Configuration.keyboard
-        keyboardUbatch128.microBatchSize = 128
-        keyboardUbatch128.batchSize = 128
+        var keyboardUbatch32F16 = LlamaGenerator.Configuration.keyboard
+        keyboardUbatch32F16.microBatchSize = 32
+        keyboardUbatch32F16.quantizedKVCache = false
         let profiles: [(String, LlamaGenerator.Configuration)] = [
-            ("keyboard", .keyboard), ("keyboard_ubatch128", keyboardUbatch128), ("app", .app),
+            ("keyboard", .keyboard), ("keyboard_ubatch32_f16kv", keyboardUbatch32F16), ("app", .app),
         ]
         for (name, config) in profiles {
             let generator = try LlamaGenerator(modelPath: path, format: format, configuration: config)

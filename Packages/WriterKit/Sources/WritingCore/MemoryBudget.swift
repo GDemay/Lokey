@@ -56,6 +56,16 @@ public enum MemoryBudget {
         #endif
     }
 
+    /// Returns freed heap pages to the system. Loading a model frees large temporary buffers
+    /// (GGUF metadata, tokenizer tables) that the allocator would otherwise keep counted.
+    public static func releaseFreeMemory() {
+        #if canImport(Darwin)
+        _ = malloc_zone_pressure_relief(nil, 0)
+        #elseif os(Linux)
+        _ = glibcMallocTrim(0)
+        #endif
+    }
+
     /// "footprint 45.1 MB, peak 61.0 MB" for diagnostics logs.
     public static func summary() -> String {
         func mb(_ bytes: UInt64?) -> String { bytes.map { String(format: "%.1f MB", Double($0) / 1_048_576) } ?? "n/a" }
@@ -86,3 +96,9 @@ public enum MemoryBudget {
         }
     }
 }
+
+#if os(Linux)
+/// glibc's malloc_trim (declared in malloc.h, which the Glibc module does not export).
+@_silgen_name("malloc_trim")
+private func glibcMallocTrim(_ pad: Int) -> Int32
+#endif

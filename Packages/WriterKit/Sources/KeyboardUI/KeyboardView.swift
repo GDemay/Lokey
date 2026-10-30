@@ -198,7 +198,8 @@ struct ResultPanel: View {
         switch controller.phase {
         case .result(_, let result):
             HStack {
-                Text(result.stats.totalSeconds > 0 ? String(format: "%.2fs on-device", result.stats.totalSeconds) : "")
+                let seconds = controller.lastWaitSeconds ?? result.stats.totalSeconds
+                Text(seconds > 0 ? String(format: "%.2fs on-device", seconds) : "")
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Retry") { controller.retry() }.accessibilityIdentifier("kb.retry")

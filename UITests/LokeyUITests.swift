@@ -160,10 +160,17 @@ final class LokeyUITests: XCTestCase {
             alreadyAdded.tap()
             let toggle = settings.switches.firstMatch
             if toggle.waitForExistence(timeout: 3), (toggle.value as? String) == "0" {
-                toggle.tap()
-                let allow = settings.alerts.buttons["Allow"]
-                if allow.waitForExistence(timeout: 3) { allow.tap() }
+                // On iOS 26 the switch element spans the row; tapping its centre hits the label.
+                toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+                // The confirmation alert can belong to Settings or to SpringBoard.
+                let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+                for owner in [settings, springboard] {
+                    let allow = owner.alerts.buttons["Allow"]
+                    if allow.waitForExistence(timeout: 3) { allow.tap(); break }
+                }
             }
+            let granted = (toggle.value as? String) == "1"
+            print("METRIC system_keyboard_full_access=\(granted ? 1 : 0)")
             screenshot("13-settings-full-access")
         }
 
