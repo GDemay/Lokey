@@ -25,6 +25,9 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         public var maxCachedPrefixes: Int
         /// Store the attention KV cache as q8_0 instead of f16 (half the memory, needs flash attention).
         public var quantizedKVCache: Bool
+        /// Threads for background prompt prewarming; nil uses `batchThreads`. The keyboard prewarms
+        /// when it appears, while it draws and the user starts typing, so it keeps that to one core.
+        public var prewarmThreads: Int?
         /// false = register no Metal device in this process (no MTLDevice, no shader compile).
         /// Only effective if this is the process's first llama.cpp use.
         public var allowsMetal: Bool
@@ -33,7 +36,7 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
                     threads: Int = Configuration.defaultThreads,
                     batchThreads: Int = Configuration.defaultBatchThreads, gpuLayers: Int = 0,
                     repackWeights: Bool = true, maxCachedPrefixes: Int = 6, quantizedKVCache: Bool = false,
-                    allowsMetal: Bool = true) {
+                    prewarmThreads: Int? = nil, allowsMetal: Bool = true) {
             self.contextLength = contextLength
             self.batchSize = batchSize
             self.microBatchSize = microBatchSize
@@ -43,6 +46,7 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
             self.repackWeights = repackWeights
             self.maxCachedPrefixes = maxCachedPrefixes
             self.quantizedKVCache = quantizedKVCache
+            self.prewarmThreads = prewarmThreads
             self.allowsMetal = allowsMetal
         }
 
@@ -71,7 +75,7 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         public static var keyboard: Configuration {
             Configuration(contextLength: 1024, batchSize: 128, microBatchSize: 16,
                           gpuLayers: 0, repackWeights: false, maxCachedPrefixes: 2, quantizedKVCache: true,
-                          allowsMetal: false)
+                          prewarmThreads: 1, allowsMetal: false)
         }
 
         /// The containing app has gigabytes of headroom, so it can afford llama.cpp's weight repacking
@@ -180,6 +184,13 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
     public func prewarm(prefix: String) async throws {
         try await run { _ in
             let start = DispatchTime.now()
+            if let threads = self.configuration.prewarmThreads {
+                llama_set_n_threads(self.context, Int32(threads), Int32(threads))
+            }
+            defer {
+                llama_set_n_threads(self.context, Int32(self.configuration.threads),
+                                    Int32(self.configuration.batchThreads))
+            }
             let (tokens, cached) = try self.loadPrefix(prefix)
             let elapsed = self.seconds(from: start, to: DispatchTime.now())
             Diagnostics.log("prewarm: \(tokens) prompt tokens\(cached ? " (already cached)" : "") in "
@@ -192,6 +203,11 @@ public final class LlamaGenerator: TextGenerator, @unchecked Sendable {
         try await run { token in
             try self.generateSync(prompt, maxTokens: maxTokens, cancel: token, onPartial: onPartial)
         }
+    }
+
+    /// (decode, batch) threads the context currently uses; for tests.
+    var activeThreads: (Int, Int) {
+        queue.sync { (Int(llama_n_threads(context)), Int(llama_n_threads_batch(context))) }
     }
 
     /// Drops cached prompt states (e.g. on a memory warning).

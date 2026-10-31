@@ -56,6 +56,11 @@ final class LlamaRuntimeTests: XCTestCase {
         let generator = try LlamaGenerator(modelPath: try modelPath(), format: format, configuration: .keyboard)
         let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
         await assistant.prewarm()
+        // Prewarming runs on one core (the keyboard is drawing meanwhile); requests get all of them back.
+        let config = LlamaGenerator.Configuration.keyboard
+        XCTAssertEqual(config.prewarmThreads, 1)
+        XCTAssertEqual(generator.activeThreads.0, config.threads)
+        XCTAssertEqual(generator.activeThreads.1, config.batchThreads)
         let result = try await assistant.run(actionID: "fix", text: "she have two brothers")
         print("METRIC first_fix_after_prewarm_s=\(result.stats.totalSeconds) cached_tokens=\(result.stats.cachedTokens)")
         XCTAssertGreaterThan(result.stats.cachedTokens, 0)
