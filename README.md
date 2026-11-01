@@ -60,6 +60,36 @@ iPhone with iOS 26 or later (A13 chip or newer). Inference uses ARM DotProd CPU 
 
 ## Build & run
 
+For local development, double-click **Run Lokey.command**, or run:
+
+```sh
+scripts/run-simulator.sh
+```
+
+In Codex, open this folder as a local project and choose **Run Lokey** from the
+project actions. **Open in Xcode** opens the source project for editing and debugging.
+
+This builds the app, downloads and checks the recommended model, and opens a
+reusable **Lokey Local** iPhone simulator. Finish the welcome screens, then type
+in **Write**, tap **Fix**, and tap **Replace**. Corrections run on this Mac,
+without a server. Edit the source and run the same command to rebuild. The
+simulator keeps your model and settings. No Apple developer account is needed.
+
+Install Xcode with an iOS 26 or newer simulator, and `brew install xcodegen cmake`
+first. The first build compiles the AI engine and takes several minutes. Later
+builds reuse it. To choose another simulator, set `SIMULATOR_UDID`.
+
+In Xcode 27, select **Lokey Local** in Device Hub. To test the system keyboard,
+turn off **Device › Keyboard › Simulate Hardware Keyboard**. If the iPhone
+keyboard is hidden, choose **Toggle Software Keyboard** from the same menu.
+
+Checked locally on 2026-11-01 with Xcode 27.2 and an iPhone 18 Pro simulator
+running iOS 27.0: all 32 core/model tests and all six app checks pass, including
+the system keyboard. The 70-case correction check scores 77.1% with no harmful
+rewrites. A physical iPhone still needs separate testing.
+
+For Xcode editing and device builds:
+
 ```sh
 brew install xcodegen
 scripts/bootstrap.sh                          # builds llama.xcframework b12015 (device + Simulator + macOS)

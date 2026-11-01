@@ -15,6 +15,7 @@ struct EditorView: View {
     @State private var error: String?
     @State private var history: [String] = []
     @State private var task: Task<Void, Never>?
+    @State private var requestID: UUID?
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -36,6 +37,10 @@ struct EditorView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(Brand.name)
+            .onChange(of: text) { _, _ in
+                stop()
+                result = nil
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
@@ -67,6 +72,7 @@ struct EditorView: View {
             }
             TextEditor(text: $text)
                 .focused($focused)
+                .autocorrectionDisabled()
                 .frame(minHeight: 160)
                 .scrollContentBackground(.hidden)
                 .accessibilityIdentifier("editor.text")
@@ -117,7 +123,7 @@ struct EditorView: View {
                 ProgressView()
                 Text("\(action.title) on-device…").font(.subheadline.weight(.semibold))
                 Spacer()
-                Button("Stop") { task?.cancel(); running = nil }
+                Button("Stop", action: stop)
             }
             if !partial.isEmpty { Text(partial).foregroundStyle(.secondary) }
         }
@@ -176,24 +182,44 @@ struct EditorView: View {
         partial = ""
         running = action
         let input = text
+        let id = UUID()
+        requestID = id
         task = Task {
             do {
                 let assistant = try await model.assistant()
                 let output = try await assistant.run(actionID: action.id, text: input) { p in
-                    Task { @MainActor in partial = p }
+                    Task { @MainActor in
+                        guard requestID == id else { return }
+                        partial = p
+                    }
                 }
-                if Task.isCancelled { return }
+                guard !Task.isCancelled, requestID == id else { return }
                 result = output
                 resultAction = action
             } catch is CancellationError {
             } catch {
+                guard requestID == id else { return }
                 self.error = error.localizedDescription
             }
+            guard requestID == id else { return }
             running = nil
+            requestID = nil
         }
     }
 
+    private func stop() {
+        requestID = nil
+        task?.cancel()
+        task = nil
+        running = nil
+        partial = ""
+    }
+
     private func replace(with output: String) {
+        guard result?.original == text else {
+            result = nil
+            return
+        }
         history.append(text)
         text = output
         result = nil

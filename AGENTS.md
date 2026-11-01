@@ -108,6 +108,12 @@ Key files:
 
 Prerequisites: Xcode 26, `brew install xcodegen`, Python 3. The app requires **iOS 26+** (A13 or newer).
 
+For local development, use `scripts/run-simulator.sh` (also available through
+`Run Lokey.command` and the Codex **Run Lokey** action). It builds the app, checks
+the recommended model, and installs both into a reusable **Lokey Local** simulator.
+It keeps the simulator running so you can test edits after each rebuild. Requires
+`cmake` as well as `xcodegen`. Xcode 27 displays the simulator in Device Hub.
+
 ```sh
 scripts/bootstrap.sh      # builds llama.xcframework b12015 from source (arm64 device + Simulator + macOS, DotProd, no BLAS), ~8 min
 xcodegen generate         # creates Lokey.xcodeproj (not committed)

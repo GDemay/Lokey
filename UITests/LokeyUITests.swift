@@ -100,6 +100,30 @@ final class LokeyUITests: XCTestCase {
         screenshot("09-keyboard-fix-applied")
     }
 
+    func test06_EditingClearsOldCorrectionAndUndoRestoresInput() throws {
+        try requireModel()
+        let editor = app.textViews["editor.text"]
+        editor.tap()
+        editor.typeText("she have two brothers")
+        element("editor.fix").tap()
+        XCTAssertTrue(element("editor.replace").waitForExistence(timeout: 240))
+
+        editor.tap()
+        editor.typeText(" and a cat")
+        XCTAssertFalse(element("editor.result").exists)
+        XCTAssertFalse(element("editor.replace").exists)
+        let input = try XCTUnwrap(editor.value as? String)
+
+        element("editor.fix").tap()
+        XCTAssertTrue(element("editor.replace").waitForExistence(timeout: 240))
+        let output = try XCTUnwrap(element("editor.result").value as? String)
+        XCTAssertTrue(output.contains("has two brothers"), output)
+        element("editor.replace").tap()
+        XCTAssertEqual(editor.value as? String, output)
+        element("editor.undo").tap()
+        XCTAssertEqual(editor.value as? String, input)
+    }
+
     func test04_AutocorrectsWhileTyping() throws {
         try requireModel()
         app.tabBars.buttons["Keyboard"].tap()
