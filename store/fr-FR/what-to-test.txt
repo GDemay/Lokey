@@ -1,0 +1,11 @@
+Testez l’installation du clavier, la frappe, les corrections en français et en anglais, et la stabilité dans vos apps habituelles.
+
+1. Suivez le guide et téléchargez le modèle recommandé en Wi-Fi.
+2. Ajoutez Lokey dans les réglages de l’iPhone, puis choisissez-le avec la touche globe. L’accès complet est facultatif.
+3. En AZERTY, essayez « Je cai pas écrit francai ». Touchez Fix, vérifiez le sens de la correction, puis touchez Apply.
+4. Essayez aussi « I has 2 kid ».
+5. Terminez une phrase contenant une erreur. Testez le mode Automatic et l’annulation avec Undo.
+6. Testez les accents par appui long, le changement de clavier et la frappe sans accès complet.
+7. Essayez Notes et vos apps de messages. Signalez les lenteurs, les changements de sens ou la fermeture du clavier.
+
+Relisez avant d’envoyer. Ne joignez aucun texte privé à vos retours.

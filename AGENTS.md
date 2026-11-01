@@ -227,9 +227,10 @@ Not verified / open:
 - **LFM3-1.7B (decided: optional, not the default):** 64.3% of the keyboard cases, 0 harmful, JFLEG
   GLEU 44.2, 1.66× slower than LFM2.5-1.2B (77.1%, 53.8) on the CI CPU. Its first CI eval (34%) was a
   harness bug, fixed (duplicated answers around `</think>`, `docs/BENCHMARK.md`).
-- **App Store:** not submitted. Personal development signing and the App Group are
-  configured locally. Distribution export, listing, store assets, and broader TestFlight
-  testing remain; see `docs/APP_STORE.md`.
+- **App Store:** not submitted for public review. App record 6829549183 exists and
+  build 1.0.0 (2) uploaded successfully for processing. Personal distribution signing
+  and App Groups are configured. Tester setup and website metadata are pending
+  Mac unlock and browser sign-in; see `store/STATUS.md`.
 
 ## 7. Next steps (prioritized)
 
@@ -302,3 +303,7 @@ Not verified / open:
 - `Run on iPhone.command` / `scripts/run-device.sh` build and install a signed Release
   app using the owner's default personal team. Environment overrides are documented
   in README. Keep physical device selection separate from Device Hub's simulators.
+
+App Store uploads use explicit target-level `TARGETED_DEVICE_FAMILY = 1` on the
+app and keyboard. A project-level value alone is overridden by XcodeGen defaults
+and makes the portrait-only app fail iPad multitasking validation.

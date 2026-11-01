@@ -7,7 +7,8 @@ It also **corrects each sentence as you type**, which the paid cloud apps in thi
 category (e.g. AiText) don't do.
 
 > Status: release candidate. Guided setup, AZERTY, and real keyboard corrections have
-> been tested locally on an iPhone 17 Pro. Not submitted to the App Store.
+> been tested locally on an iPhone 17 Pro. Build 1.0.0 (2) is uploaded to App Store
+> Connect for processing. Tester setup and store submission remain open.
 > See [release preparation](docs/APP_STORE.md) for the remaining submission steps.
 
 ## Use Lokey as your keyboard
@@ -141,6 +142,13 @@ MODEL_FILE=.models/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf scripts/ci/ios-e2e.sh   # 
 ```
 
 Linux (core + llama.cpp integration): `LLAMA_PREFIX=<dir with include/llama.h, lib/libllama.so> scripts/test-linux.sh`.
+
+## TestFlight uploads
+
+The **Upload to TestFlight** Codex action builds a Release archive and uploads it
+to the personal App Store Connect account. The Mac must be unlocked and Xcode
+signed in. It uses Apple’s build-number management for later uploads. See
+[store/STATUS.md](store/STATUS.md) for the first upload and remaining setup.
 
 ## Privacy
 

@@ -18,3 +18,8 @@ command = "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; xcodegen gene
 name = "Run on iPhone"
 icon = "run"
 command = "./\"Run on iPhone.command\""
+
+[[actions]]
+name = "Upload to TestFlight"
+icon = "run"
+command = "./scripts/upload-testflight.sh"

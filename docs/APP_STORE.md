@@ -1,5 +1,9 @@
 # App Store release preparation
 
+App record **6829549183** has been created. Build **1.0.0 (2)** was uploaded on
+November 1, 2026 and accepted for processing. Tester setup and website metadata
+are still pending. See [current status](../store/STATUS.md).
+
 ## Listing
 
 Name: Lokey: Private AI Keyboard
@@ -55,12 +59,13 @@ provider behavior before submitting the label in App Store Connect.
 
 - The app and keyboard must be signed by the same personal Apple development team
   with `group.com.gdemay.lokey` enabled for both bundle IDs.
-- Create the App Store Connect listing and complete age rating, export compliance,
+- Complete the App Store Connect listing and its age rating, export compliance,
   copyright, model rights, and contact information.
 - Publish the privacy policy and support page at stable public URLs. The policy
   source is `docs/PRIVACY.md`; support is the repository issue tracker. Use URLs
   from the release branch or main only after those files are pushed.
-- Export the signed Release archive with App Store distribution signing.
+- App Store signing and upload are complete for build 2. Check processing and
+  TestFlight status on Apple’s website before claiming it is ready for testers.
 - Five checked screenshots are prepared in `artifacts/release/screenshots/`
   (real iPhone 17 Pro, 1206 × 2622, no transparency). Review their status bars and
   order before upload. The signed archive is in `build/release/Lokey.xcarchive`.
