@@ -19,6 +19,7 @@ public enum AutocorrectMode: String, Codable, CaseIterable, Sendable {
 
 public struct AppSettings: Codable, Equatable, Sendable {
     public var selectedModelID: String?
+    public var keyboardLayout: KeyboardLayout = .automatic
     public var autocorrectMode: AutocorrectMode = .automatic
     /// Fixes that change more than this (1 - similarity) are offered as suggestions even in automatic mode.
     public var automaticMaxChange: Double = 0.2
@@ -28,6 +29,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var spellingSuggestions: Bool = true
     public var useGPU: Bool = false
     public var hasCompletedOnboarding: Bool = false
+    public var setupVersion: Int = 0
+    public var setupStep: Int = 0
+    public var keyboardCheckID: String?
 
     public init() {}
 
@@ -36,6 +40,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = AppSettings.Defaults()
         selectedModelID = try c.decodeIfPresent(String.self, forKey: .selectedModelID)
+        keyboardLayout = try c.decodeIfPresent(KeyboardLayout.self, forKey: .keyboardLayout) ?? .automatic
         autocorrectMode = try c.decodeIfPresent(AutocorrectMode.self, forKey: .autocorrectMode) ?? d.autocorrectMode
         automaticMaxChange = try c.decodeIfPresent(Double.self, forKey: .automaticMaxChange) ?? d.automaticMaxChange
         hapticFeedback = try c.decodeIfPresent(Bool.self, forKey: .hapticFeedback) ?? d.hapticFeedback
@@ -44,6 +49,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         spellingSuggestions = try c.decodeIfPresent(Bool.self, forKey: .spellingSuggestions) ?? d.spellingSuggestions
         useGPU = try c.decodeIfPresent(Bool.self, forKey: .useGPU) ?? d.useGPU
         hasCompletedOnboarding = try c.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? d.hasCompletedOnboarding
+        setupVersion = try c.decodeIfPresent(Int.self, forKey: .setupVersion) ?? 0
+        setupStep = try c.decodeIfPresent(Int.self, forKey: .setupStep) ?? 0
+        keyboardCheckID = try c.decodeIfPresent(String.self, forKey: .keyboardCheckID)
     }
 
     private struct Defaults {
@@ -64,17 +72,25 @@ public struct KeyboardStatus: Codable, Equatable, Sendable {
     public var lastSeen: Date
     public var hasFullAccess: Bool
     public var modelName: String?
+    public var modelID: String?
+    public var checkID: String?
     public var footprintMB: Double?
     /// The extension's highest footprint so far; this is what must stay under the memory limit.
     public var peakFootprintMB: Double?
 
     public init(lastSeen: Date, hasFullAccess: Bool, modelName: String? = nil, footprintMB: Double? = nil,
-                peakFootprintMB: Double? = nil) {
+                peakFootprintMB: Double? = nil, modelID: String? = nil, checkID: String? = nil) {
         self.lastSeen = lastSeen
         self.hasFullAccess = hasFullAccess
         self.modelName = modelName
+        self.modelID = modelID
+        self.checkID = checkID
         self.footprintMB = footprintMB
         self.peakFootprintMB = peakFootprintMB
+    }
+
+    public func verifies(checkID: String, modelID: String?) -> Bool {
+        self.checkID == checkID && hasFullAccess && modelID != nil && self.modelID == modelID
     }
 }
 

@@ -39,7 +39,7 @@ public struct ActionPrompt: Codable, Sendable, Equatable {
 
 /// A prompt split at the point where the user's text begins.
 ///
-/// `prefix` only depends on the action and the model family, so an engine can
+/// `prefix` only depends on the action, language profile, and model family, so an engine can
 /// evaluate it once, snapshot the model state and reuse it for every request.
 public struct RenderedPrompt: Sendable, Equatable {
     public var prefix: String
@@ -77,7 +77,12 @@ public struct PromptLibrary: Codable, Sendable {
         return config
     }
 
+    public func resolvedAction(_ action: String, text: String) -> String {
+        action == "fix" && CorrectionLanguage.detect(in: text) == .french ? "fix_french" : action
+    }
+
     public func render(action: String, text: String, format: String) throws -> RenderedPrompt {
+        let action = resolvedAction(action, text: text)
         guard let prompt = actions[action] else { throw PromptError.unknownAction(action) }
         guard let fmt = formats[format] else { throw PromptError.unknownFormat(format) }
 

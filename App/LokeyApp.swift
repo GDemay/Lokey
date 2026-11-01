@@ -25,9 +25,15 @@ enum Palette {
 }
 
 struct RootView: View {
+    @EnvironmentObject var model: AppModel
+
     var body: some View {
         NavigationStack {
-            KeyboardSetupView()
+            if model.isSettingUp {
+                GuidedSetupView()
+            } else {
+                KeyboardSetupView()
+            }
         }
     }
 }

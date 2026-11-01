@@ -39,13 +39,36 @@ final class LlamaRuntimeTests: XCTestCase {
         let prompt = try library.render(action: "fix", text: input, format: format)
         let generated = try await generator.generate(prompt, maxTokens: 48, onPartial: nil)
         let output = library.clean(generated.text, format: format)
-        let verdict = try OutputGuard(library: library, action: "fix").evaluate(source: input, output: output)
+        let verdict = try OutputGuard(library: library, action: "fix", text: input).evaluate(source: input, output: output)
         print("METRIC short_grammar_output=\(output.debugDescription) verdict=\(verdict)")
         XCTAssertTrue(["I have 2 kids.", "I have two kids.", "I have 2 kids", "I have two kids"].contains(output), output)
         let assistant = WritingAssistant(library: library, generator: generator)
         let result = try await assistant.run(actionID: "fix", text: input)
         XCTAssertEqual(result.output, output)
         XCTAssertEqual(result.rejectedChunks, 0)
+    }
+
+
+    func testFrenchCorrections() async throws {
+        let generator = try LlamaGenerator(modelPath: try modelPath(), format: format, configuration: .keyboard)
+        let library = try PromptLibrary.bundled()
+        let cases = [
+            ("Je cai pas écrit francai", ["Je ne sais pas écrire français.", "Je ne sais pas comment écrire en français."]),
+            ("il a oublier les cle a la maison", ["Il a oublié les clés à la maison."]),
+            ("tu peut venir demain", ["Tu peux venir demain.", "Tu peux venir demain ?", "Tu peux venir demain ?"]),
+            ("je suis aller au marcher hier", ["Je suis allé au marché hier."]),
+            ("On se voit à 18 h, comme prévu.", ["On se voit à 18 h, comme prévu.", "On se voit à 18h, comme prévu."]),
+            ("Je n'ai pas écrit en français.", ["Je n'ai pas écrit en français."]),
+        ]
+        for (input, expected) in cases {
+            let prompt = try library.render(action: "fix", text: input, format: format)
+            let generated = try await generator.generate(prompt, maxTokens: 80, onPartial: nil)
+            let output = library.clean(generated.text, format: format)
+            let verdict = try OutputGuard(library: library, action: "fix", text: input).evaluate(source: input, output: output)
+            print("METRIC french input=\(input.debugDescription) output=\(output.debugDescription) verdict=\(verdict)")
+            XCTAssertTrue(expected.map { $0.trimmingCharacters(in: ["."]) }.contains(output.replacingOccurrences(of: "’", with: "'").trimmingCharacters(in: ["."])), output)
+            XCTAssertTrue(verdict.isAccepted, "\(input): \(verdict)")
+        }
     }
 
     func testPrefixSnapshotIsReusedAndDeterministic() async throws {
@@ -80,6 +103,17 @@ final class LlamaRuntimeTests: XCTestCase {
         let result = try await assistant.run(actionID: "fix", text: "she have two brothers")
         print("METRIC first_fix_after_prewarm_s=\(result.stats.totalSeconds) cached_tokens=\(result.stats.cachedTokens)")
         XCTAssertGreaterThan(result.stats.cachedTokens, 0)
+    }
+
+
+    func testPrewarmMakesFrenchRequestWarm() async throws {
+        let generator = try LlamaGenerator(modelPath: try modelPath(), format: format, configuration: .keyboard)
+        let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
+        await assistant.prewarm(actionID: "fix_french")
+        let result = try await assistant.run(actionID: "fix", text: "Je cai pas écrit francai")
+        XCTAssertGreaterThan(result.stats.cachedTokens, 0)
+        XCTAssertEqual(result.rejectedChunks, 0)
+        XCTAssertTrue(result.output.contains("écrire"), result.output)
     }
 
     func testCancellationStopsGeneration() async throws {

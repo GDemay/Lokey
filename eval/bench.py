@@ -13,6 +13,7 @@ Usage:
 import argparse
 import difflib
 import json
+import unicodedata
 import math
 import os
 import re
@@ -30,7 +31,21 @@ def load_prompts(path):
         return json.load(f)
 
 
+def correction_language(text):
+    tokens = set(words(text))
+    french = set("je jai jétais tu il elle nous vous ils elles les des une dans pour avec pas est suis sont bonjour merci français francais ça cest était demain hier peux peut veux".split())
+    english = set("i im you he she we they the this that is are have has dont doesnt will would what how please thanks your my its their".split())
+    fr_score = len(tokens & french) * 3 + len(tokens & set("le la de du se ne au".split()))
+    en_score = len(tokens & english) * 3
+    return "french" if fr_score >= 3 and fr_score > en_score else "english"
+
+
+def resolved_action(action, text):
+    return "fix_french" if action == "fix" and correction_language(text) == "french" else action
+
+
 def build_messages(prompts, action, text):
+    action = resolved_action(action, text)
     a = prompts["actions"][action]
     msgs = [{"role": "system", "content": a["system"]}]
     for ex in a.get("examples", []):
@@ -110,13 +125,19 @@ def agreement_form(word):
     return AGREEMENT_FORMS.get(word, word)
 
 
+def word_similarity(a, b):
+    def fold(word):
+        return "".join(c for c in unicodedata.normalize("NFD", word) if unicodedata.category(c) != "Mn")
+    return similarity(fold(a), fold(b))
+
+
 def word_retention(source, output):
     src = {w for w in words(source) if len(w) >= 3}
     if not src:
         return 1.0
     out = set(words(output))
     output_forms = {agreement_form(w) for w in out}
-    kept = sum(1 for w in src if agreement_form(w) in output_forms or any(1.0 - osa_distance(w, o) / max(len(w), len(o)) >= 0.6 for o in out))
+    kept = sum(1 for w in src if agreement_form(w) in output_forms or any(word_similarity(w, o) >= 0.6 for o in out))
     return kept / len(src)
 
 
@@ -129,13 +150,14 @@ def leaked_words(prompts, action, source, output):
     source_forms = {agreement_form(w) for w in src}
     leaked = []
     for w in set(words(output)):
-        if len(w) >= 4 and w in ex and agreement_form(w) not in source_forms and not any(1.0 - osa_distance(w, s) / max(len(w), len(s)) >= 0.6 for s in src):
+        if len(w) >= 4 and w in ex and agreement_form(w) not in source_forms and not any(word_similarity(w, s) >= 0.6 for s in src):
             leaked.append(w)
     return sorted(leaked)
 
 
 def guard(prompts, action, source, output):
     """Mirror of OutputGuard.swift: reject outputs that look like an answer, not an edit."""
+    action = resolved_action(action, source)
     g = prompts["guards"][prompts["actions"][action].get("guard", "strict")]
     if not output.strip():
         return False, "empty"

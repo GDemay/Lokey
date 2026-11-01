@@ -16,9 +16,9 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Packages",
 
 p = bench.load_prompts(bench.DEFAULT_PROMPTS)
 renders = []
-for action in ["fix", "professional", "ask", "to_english"]:
+for action in ["fix", "fix_french", "professional", "ask", "to_english"]:
     for fmt in ["chatml", "lfm3"]:
-        for text in ["i dont know", 'Café 🙂 "quoted"\nnew line']:
+        for text in ["Je cai pas écrit francai", "i dont know", 'Café 🙂 "quoted"\nnew line']:
             renders.append({"action": action, "format": fmt, "text": text,
                             "full": bench.render(p, fmt, bench.build_messages(p, action, text))})
 

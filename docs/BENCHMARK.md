@@ -209,3 +209,51 @@ On the iPhone 18 Pro simulator (iOS 27.0, Debug build), the idle setup app has a
 app's in-app correction workflow logged about 788 MB after loading and repacking
 the model. These are different workflows: inference now runs only in the keyboard
 extension. This does not establish the keyboard's memory use on a physical phone.
+
+## 2026-11-01 — guided setup, French, and physical iPhone
+
+Xcode 27.2; iPhone 17 Pro, iOS 26.6.1; Release build; LFM2.5 1.2B Q4_0,
+CPU-only keyboard profile. The real keyboard passed these device UI tests:
+
+- Guided setup, return from an unfinished step, finish, and relaunch.
+- Recommended model present and selected.
+- `I has 2 kid` → `I have 2 kids.` through Fix and Apply.
+- Automatic English correction and Undo.
+- AZERTY key positions, normal typing, and long-press `é`.
+- `Je cai pas écrit francai` → `Je ne sais pas comment écrire en français.`
+  through Fix and Apply, with a clean correction preview.
+- Basic typing with Full Access off, then restoring the permission.
+- Keyboard status and recorded memory peak below the 77 MB test threshold.
+
+The first mixed English/French device run recorded a peak of **67.7 MB**. A later
+French-only run with the French prompt prewarmed recorded **56.9 MB**. These are
+different workloads; the lower number is not a measured memory saving. The French
+Fix shown in the first run took **4.23 s**, including a cold French prompt. With
+French prewarming for an empty AZERTY field, the same UI check showed **0.45 s**.
+These are single device samples, not a latency distribution or a guarantee.
+
+The macOS regression set has 80 cases: **56/72 English**, unchanged, and **8/8 French**.
+The final full core/model run passed 40 tests; the added French prewarm test also
+passed separately (41 tests in total). Mean eval request time was 293 ms and p90
+318 ms in that full run. The existing harmful-edit proxy found zero harmful edits.
+It compares similarity and accepted references; it does not prove semantic safety.
+Eight French cases are a small regression set, not general French accuracy.
+
+The English prompt stays unchanged. French input uses a separate prompt selected
+from function words in the sentence; mixed or very short text can be ambiguous.
+Accent folding applies only to fuzzy word comparisons in the guard, so `cle` →
+`clés` does not look like leaked example text. Thresholds stay unchanged. Swift
+and Python agree on 30 rendered prompts and 167 guard pairs. All 159 previous
+guard verdicts are unchanged.
+
+Local evidence (ignored build artifacts):
+
+- `artifacts/local/iPhoneFinalOnboarding.xcresult`
+- `artifacts/local/iPhoneKeyboard.xcresult`
+- `artifacts/local/iPhoneFrenchPreview.xcresult`
+- `artifacts/local/AZERTYSetup.xcresult` (simulator)
+- `artifacts/local/french-final-eval.json`
+- `artifacts/release/screenshots/` (five real iPhone images, 1206 × 2622, no alpha)
+
+App Store submission and broader TestFlight checks on older devices and common
+host apps remain open. Full Access off was checked for typing, not model inference.

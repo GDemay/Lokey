@@ -184,9 +184,19 @@ struct ResultPanel: View {
             }
             .accessibilityIdentifier("kb.working")
         case .result(_, let result):
-            Text(Self.attributed(result.segments, showRemoved: result.actionID == WritingAction.fix.id))
-                .accessibilityIdentifier("kb.result")
-                .accessibilityValue(result.output)
+            VStack(alignment: .leading, spacing: 14) {
+                Text(result.output)
+                    .accessibilityIdentifier("kb.result")
+                    .accessibilityValue(result.output)
+                if result.hasChanges {
+                    DisclosureGroup("Review changes") {
+                        Text(Self.attributed(result.segments, showRemoved: result.actionID == WritingAction.fix.id))
+                            .font(.subheadline).padding(.top, 8)
+                    }
+                    .font(.subheadline)
+                    .accessibilityIdentifier("kb.reviewChanges")
+                }
+            }
         case .message(let message):
             Text(message).accessibilityIdentifier("kb.message")
         case .idle:

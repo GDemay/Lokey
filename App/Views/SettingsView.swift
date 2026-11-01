@@ -7,11 +7,15 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
+                Picker("Keyboard layout", selection: $model.settings.keyboardLayout) {
+                    ForEach(KeyboardLayout.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .accessibilityIdentifier("settings.layout")
                 Picker("Correct while typing", selection: $model.settings.autocorrectMode) {
                     ForEach(AutocorrectMode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .accessibilityIdentifier("settings.autocorrect")
-                Toggle("Show changes before applying Fix", isOn: $model.settings.showChangesBeforeApplying)
+                Toggle("Review Fix before applying", isOn: $model.settings.showChangesBeforeApplying)
                 Toggle("Spelling suggestions", isOn: $model.settings.spellingSuggestions)
                 Toggle("Haptic feedback", isOn: $model.settings.hapticFeedback)
                 Toggle("Key click sound", isOn: $model.settings.keyClickSound)
@@ -25,8 +29,24 @@ struct SettingsView: View {
                 Label("Text is processed on your iPhone", systemImage: "iphone")
                 Label("No account, ads, or analytics", systemImage: "hand.raised")
                 Label("The keyboard makes no internet requests", systemImage: "wifi.slash")
-                Text("Full Access lets Lokey share settings with its keyboard. It does not send your text anywhere.")
+                Text("Full Access lets the keyboard save status and diagnostics for this app. Your text stays on your iPhone.")
                     .font(.footnote).foregroundStyle(.secondary)
+            }
+
+            Section("Help") {
+                NavigationLink("Keyboard setup & help") { HelpView() }
+                NavigationLink("Privacy policy") { PrivacyView() }
+            }
+
+            if let status = model.keyboardStatus {
+                Section("Keyboard status") {
+                    LabeledContent("Last seen", value: status.lastSeen.formatted(date: .abbreviated, time: .shortened))
+                    if let name = status.modelName { LabeledContent("Model", value: name) }
+                    if let peak = status.peakFootprintMB {
+                        LabeledContent("Peak memory", value: String(format: "%.1f MB", peak))
+                            .accessibilityIdentifier("settings.keyboardPeak")
+                    }
+                }
             }
 
             Section("About") {

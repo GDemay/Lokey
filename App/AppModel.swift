@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var installed: Set<String> = []
     @Published private(set) var downloads: [String: DownloadState] = [:]
     @Published private(set) var keyboardStatus: KeyboardStatus?
+    @Published var isSettingUp: Bool
 
     init() {
         catalog = try! ModelCatalog.bundled()
@@ -30,7 +31,12 @@ final class AppModel: ObservableObject {
             loaded.showChangesBeforeApplying = true
             loaded.autocorrectMode = .automatic
         }
+        if ProcessInfo.processInfo.arguments.contains("--uitest-onboarding") {
+            loaded.setupVersion = 0
+            loaded.setupStep = 0
+        }
         settings = loaded
+        isSettingUp = loaded.setupVersion < 1 && !ProcessInfo.processInfo.arguments.contains("--uitest-home")
         if ProcessInfo.processInfo.arguments.contains("--uitest") { settingsStore.save(loaded) }
         try? store.prepareDirectory()
         refresh()
@@ -43,6 +49,23 @@ final class AppModel: ObservableObject {
     func refresh() {
         installed = Set(store.installed(in: catalog).map(\.id))
         keyboardStatus = settingsStore.loadKeyboardStatus()
+    }
+
+    func startSetup() {
+        if settings.setupVersion >= 1 { settings.setupStep = 0 }
+        isSettingUp = true
+    }
+
+    func finishSetup() {
+        settings.setupVersion = 1
+        settings.hasCompletedOnboarding = true
+        isSettingUp = false
+    }
+
+    func beginKeyboardCheck() -> String {
+        let id = UUID().uuidString
+        settings.keyboardCheckID = id
+        return id
     }
 
     func select(_ model: ModelInfo) {
@@ -66,9 +89,10 @@ final class AppModel: ObservableObject {
         updateIdleTimer()
     }
 
-    func delete(_ model: ModelInfo) {
-        try? store.delete(model)
+    func delete(_ model: ModelInfo) throws {
+        try store.delete(model)
         refresh()
+        if settings.selectedModelID == model.id { settings.selectedModelID = store.installed(in: catalog).first?.id }
     }
 
     private func handle(_ event: ModelDownloader.Event, for model: ModelInfo) {

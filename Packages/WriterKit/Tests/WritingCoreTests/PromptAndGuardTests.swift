@@ -64,9 +64,9 @@ final class PromptAndGuardTests: XCTestCase {
 
     /// Guard decisions must match the Python harness on real model outputs.
     func testGuardMatchesPythonHarness() throws {
-        let outputGuard = try OutputGuard(library: library, action: "fix")
         var mismatches: [String] = []
         for g in golden.guards {
+            let outputGuard = try OutputGuard(library: library, action: "fix", text: g.source)
             let verdict = outputGuard.evaluate(source: g.source, output: g.output)
             let sim = Similarity.ratio(g.source, g.output)
             let ret = Similarity.wordRetention(source: g.source, output: g.output)

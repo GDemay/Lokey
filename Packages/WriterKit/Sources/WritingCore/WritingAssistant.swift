@@ -36,7 +36,6 @@ public final class WritingAssistant: @unchecked Sendable {
 
     public func run(actionID: String, text: String,
                     onPartial: (@Sendable (String) -> Void)? = nil) async throws -> AssistantResult {
-        let outputGuard = try OutputGuard(library: library, action: actionID)
         let input = String(text.prefix(maxInputCharacters))
         // Text beyond the limit is passed through unchanged, so `original` is always the full input.
         let remainder = String(text.dropFirst(input.count))
@@ -70,6 +69,7 @@ public final class WritingAssistant: @unchecked Sendable {
                     onPartial?(leading + done + partial)
                 }
                 stats = stats + s
+                let outputGuard = try OutputGuard(library: library, action: actionID, text: chunk.body)
                 if outputGuard.evaluate(source: chunk.body, output: out).isAccepted {
                     body += out
                 } else {
@@ -86,6 +86,7 @@ public final class WritingAssistant: @unchecked Sendable {
                 onPartial?(leading + partial)
             }
             stats = s
+            let outputGuard = try OutputGuard(library: library, action: actionID, text: core)
             if outputGuard.evaluate(source: core, output: out).isAccepted {
                 body = out
             } else {

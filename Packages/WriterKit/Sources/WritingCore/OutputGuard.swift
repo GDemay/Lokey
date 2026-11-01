@@ -29,7 +29,8 @@ public struct OutputGuard: Sendable {
         self.exampleWords = exampleWords
     }
 
-    public init(library: PromptLibrary, action: String) throws {
+    public init(library: PromptLibrary, action: String, text: String = "") throws {
+        let action = library.resolvedAction(action, text: text)
         let examples = library.actions[action]?.examples ?? []
         let words = examples.flatMap { Similarity.words($0.input + " " + $0.output) }.filter { $0.count >= 4 }
         self.init(config: try library.guardConfig(for: action), assistantOpeners: library.assistantOpeners,

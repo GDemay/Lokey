@@ -60,11 +60,11 @@ public enum Similarity {
         if exampleWords.isEmpty { return [] }
         let sourceWords = Set(words(source))
         let sourceForms = Set(sourceWords.map(agreementForm))
-        let src = sourceWords.map { Array($0.unicodeScalars) }
+        let src = sourceWords.map { Array(foldedWord($0).unicodeScalars) }
         var leaked: [String] = []
         for word in Set(words(output)) where word.count >= 4 && exampleWords.contains(word) {
             if sourceForms.contains(agreementForm(word)) { continue }
-            let w = Array(word.unicodeScalars)
+            let w = Array(foldedWord(word).unicodeScalars)
             let known = src.contains { 1 - Double(osaDistance(w, $0)) / Double(max(w.count, $0.count)) >= 0.6 }
             if !known { leaked.append(word) }
         }
@@ -79,16 +79,20 @@ public enum Similarity {
         if src.isEmpty { return 1 }
         let out = Set(words(output))
         let outputForms = Set(out.map(agreementForm))
-        let outScalars = out.map { Array($0.unicodeScalars) }
+        let outScalars = out.map { Array(foldedWord($0).unicodeScalars) }
         var kept = 0
         for word in src {
             if outputForms.contains(agreementForm(word)) { kept += 1; continue }
-            let w = Array(word.unicodeScalars)
+            let w = Array(foldedWord(word).unicodeScalars)
             if outScalars.contains(where: { 1 - Double(osaDistance(w, $0)) / Double(max(w.count, $0.count)) >= 0.6 }) {
                 kept += 1
             }
         }
         return Double(kept) / Double(src.count)
+    }
+
+    private static func foldedWord(_ word: String) -> String {
+        word.folding(options: .diacriticInsensitive, locale: Locale(identifier: "en_US_POSIX"))
     }
 
     // Subject agreement can change most letters in a short verb while preserving its meaning and tense.

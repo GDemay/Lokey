@@ -13,3 +13,8 @@ command = "./\"Run Lokey.command\""
 name = "Open in Xcode"
 icon = "debug"
 command = "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; xcodegen generate && open Lokey.xcodeproj"
+
+[[actions]]
+name = "Run on iPhone"
+icon = "run"
+command = "./\"Run on iPhone.command\""

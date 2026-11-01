@@ -22,6 +22,8 @@ struct ModelsView: View {
 struct ModelRow: View {
     @EnvironmentObject var model: AppModel
     let info: ModelInfo
+    @State private var confirmDelete = false
+    @State private var deleteError: String?
 
     private var isInstalled: Bool { model.installed.contains(info.id) }
     private var isActive: Bool { model.activeModel?.id == info.id }
@@ -49,6 +51,16 @@ struct ModelRow: View {
         }
         .padding(.vertical, 4)
         .accessibilityIdentifier("models.row.\(info.id)")
+        .confirmationDialog("Delete \(info.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete model", role: .destructive) {
+                do { try model.delete(info) } catch { deleteError = error.localizedDescription }
+            }
+        } message: {
+            Text("You will need to download it again to use it offline.")
+        }
+        .alert("Could not delete model", isPresented: Binding(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })) {
+            Button("OK", role: .cancel) { deleteError = nil }
+        } message: { Text(deleteError ?? "") }
     }
 
     @ViewBuilder private var actions: some View {
@@ -74,7 +86,7 @@ struct ModelRow: View {
                             .accessibilityIdentifier("models.use.\(info.id)")
                     }
                     Spacer()
-                    Button(role: .destructive) { model.delete(info) } label: {
+                    Button(role: .destructive) { confirmDelete = true } label: {
                         Label("Delete", systemImage: "trash")
                     }
                     .font(.caption)

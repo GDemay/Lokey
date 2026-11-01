@@ -5,7 +5,7 @@ how to build and test it, what is verified, and what to do next.
 
 ## 1. What Lokey is
 
-Lokey is a **free, open-source iOS keyboard that fixes English with a local LLM**: grammar,
+Lokey is a **free, open-source iOS keyboard that fixes English and French with a local LLM**: grammar,
 spelling, punctuation, tone rewrites ("Enhance"), translation and "Ask AI", in any app. It is the
 open alternative to the paid cloud app *AiText* (see `docs/RESEARCH.md`), with three differences
 that are the product:
@@ -187,8 +187,9 @@ Integration-test environment variables:
 The 2026-11-01 app is setup-only. Its UI tests cover setup and model/settings
 navigation, the iPhone Settings shortcut, the real keyboard correcting
 `I has 2 kid` → `I have 2 kids.`, and automatic correction with Undo through
-`UITextDocumentProxy`. A physical iPhone is not connected to this development
-Mac, so device validation remains open.
+`UITextDocumentProxy`. An iPhone 17 Pro running iOS 26.6.1 is connected. Its Release UI checks cover
+English Fix, automatic correction with Undo, AZERTY with accents, French Fix,
+and keyboard memory status. See the latest section in `docs/BENCHMARK.md`.
 
 The measurements below were recorded on 2026-10-30, before the standalone editor
 and keyboard preview were removed:
@@ -218,13 +219,17 @@ Verified:
   subsystem `com.gdemay.lokey`.
 
 Not verified / open:
-- **Physical iPhone:** whether the extension stays under 77 MB (Simulator Debug footprints run tens
-  of MB above device Release builds, so the 83 MB Simulator peak doesn't settle it; ~48 MB of it is
-  the keyboard UI), real latency, and App Group access without Full Access.
+- **Older physical iPhones and longer sessions:** the iPhone 17 Pro Release checks
+  now pass, with a 67.7 MB peak in the mixed-language test. Wider coverage remains.
+  The earlier Simulator Debug footprints run tens
+  of MB above device Release builds. Full Access off has been checked for typing,
+  not model inference.
 - **LFM3-1.7B (decided: optional, not the default):** 64.3% of the keyboard cases, 0 harmful, JFLEG
   GLEU 44.2, 1.66× slower than LFM2.5-1.2B (77.1%, 53.8) on the CI CPU. Its first CI eval (34%) was a
   harness bug, fixed (duplicated answers around `</think>`, `docs/BENCHMARK.md`).
-- **App Store:** not submitted. No developer account or signing team is configured.
+- **App Store:** not submitted. Personal development signing and the App Group are
+  configured locally. Distribution export, listing, store assets, and broader TestFlight
+  testing remain; see `docs/APP_STORE.md`.
 
 ## 7. Next steps (prioritized)
 
@@ -278,3 +283,22 @@ Not verified / open:
 - Every behaviour change in correction or editing gets a test, and an eval case if it is about model output.
 - Measure before and after any performance or memory change and record the numbers in `docs/BENCHMARK.md`.
 - Never commit model weights, `.models/`, `Packages/WriterKit/Vendor/` or build products.
+
+
+## 9. Setup and French support (2026-11-01)
+
+- First launch uses a persisted four-step install flow, with optional model download
+  and Full Access, then a real keyboard check. `setupVersion` and `setupStep` keep
+  progress. Do not report an enabled keyboard from stale status: verification uses
+  a new `keyboardCheckID` echoed by the real extension, plus the loaded model ID.
+- Keyboard layout is Automatic, QWERTY, AZERTY, or QWERTZ. Automatic uses the device
+  language; this is not access to another keyboard's private layout settings.
+- English Fix keeps its original prompt. `CorrectionLanguage` routes French text to
+  `fix_french`. Keep its deterministic classifier and the Python harness in sync.
+  Changes need real-model English and French regression checks.
+- Fuzzy guard word matching folds accents. Do not weaken the similarity or retention
+  thresholds to make a case pass. Keep Swift/Python golden parity.
+- The main correction preview shows clean output; detailed changes are optional.
+- `Run on iPhone.command` / `scripts/run-device.sh` build and install a signed Release
+  app using the owner's default personal team. Environment overrides are documented
+  in README. Keep physical device selection separate from Device Hub's simulators.
