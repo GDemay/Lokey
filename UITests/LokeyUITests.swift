@@ -124,6 +124,26 @@ final class LokeyUITests: XCTestCase {
         XCTAssertEqual(editor.value as? String, input)
     }
 
+    func test07_KeyboardFixesShortAgreementErrors() throws {
+        try requireModel()
+        app.tabBars.buttons["Keyboard"].tap()
+        XCTAssertTrue(element("kb.fix").waitForExistence(timeout: 10))
+        element("preview.clear").tap()
+        typeOnKeyboard("i has ")
+        element("kb.layer").tap()
+        element("kb.key.2").tap()
+        element("kb.layer").tap()
+        typeOnKeyboard(" kid")
+        XCTAssertEqual(value("preview.text"), "I has 2 kid")
+        element("kb.fix").tap()
+        XCTAssertTrue(element("kb.apply").waitForExistence(timeout: 240))
+        screenshot("17-short-grammar-result")
+        element("kb.apply").tap()
+        XCTAssertTrue(["I have 2 kids.", "I have two kids.", "I have 2 kids", "I have two kids"].contains(value("preview.text")),
+                      value("preview.text"))
+        screenshot("18-short-grammar-applied")
+    }
+
     func test04_AutocorrectsWhileTyping() throws {
         try requireModel()
         app.tabBars.buttons["Keyboard"].tap()

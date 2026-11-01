@@ -58,9 +58,12 @@ public enum Similarity {
     /// nor plausibly new, because they come from the prompt's own examples.
     public static func leakedWords(source: String, output: String, exampleWords: Set<String>) -> [String] {
         if exampleWords.isEmpty { return [] }
-        let src = Set(words(source)).map { Array($0.unicodeScalars) }
+        let sourceWords = Set(words(source))
+        let sourceForms = Set(sourceWords.map(agreementForm))
+        let src = sourceWords.map { Array($0.unicodeScalars) }
         var leaked: [String] = []
         for word in Set(words(output)) where word.count >= 4 && exampleWords.contains(word) {
+            if sourceForms.contains(agreementForm(word)) { continue }
             let w = Array(word.unicodeScalars)
             let known = src.contains { 1 - Double(osaDistance(w, $0)) / Double(max(w.count, $0.count)) >= 0.6 }
             if !known { leaked.append(word) }
@@ -69,21 +72,33 @@ public enum Similarity {
     }
 
     /// Fraction of the source's words (3+ letters) that survive in the output,
-    /// allowing for typo fixes (fuzzy match >= 0.6). A correction keeps most words;
+    /// allowing for agreement changes and typo fixes (fuzzy match >= 0.6). A correction keeps most words;
     /// an answer to the text does not.
     public static func wordRetention(source: String, output: String) -> Double {
         let src = Set(words(source).filter { $0.count >= 3 })
         if src.isEmpty { return 1 }
         let out = Set(words(output))
+        let outputForms = Set(out.map(agreementForm))
         let outScalars = out.map { Array($0.unicodeScalars) }
         var kept = 0
         for word in src {
-            if out.contains(word) { kept += 1; continue }
+            if outputForms.contains(agreementForm(word)) { kept += 1; continue }
             let w = Array(word.unicodeScalars)
             if outScalars.contains(where: { 1 - Double(osaDistance(w, $0)) / Double(max(w.count, $0.count)) >= 0.6 }) {
                 kept += 1
             }
         }
         return Double(kept) / Double(src.count)
+    }
+
+    // Subject agreement can change most letters in a short verb while preserving its meaning and tense.
+    private static func agreementForm(_ word: String) -> String {
+        switch word {
+        case "am", "is", "are": return "be"
+        case "was", "were": return "was"
+        case "has", "have": return "have"
+        case "do", "does": return "do"
+        default: return word
+        }
     }
 }

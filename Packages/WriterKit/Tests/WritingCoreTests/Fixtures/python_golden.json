@@ -328,7 +328,7 @@
    "accepted": true,
    "reason": "",
    "similarity": 0.909091,
-   "retention": 0.75
+   "retention": 1.0
   },
   {
    "source": "I have a dog and two cat.",
@@ -384,7 +384,7 @@
    "accepted": true,
    "reason": "",
    "similarity": 0.90625,
-   "retention": 0.75
+   "retention": 1.0
   },
   {
    "source": "I am agree with you.",
@@ -656,7 +656,7 @@
    "accepted": true,
    "reason": "",
    "similarity": 0.935897,
-   "retention": 0.916667
+   "retention": 1.0
   },
   {
    "source": "Teh meeting is at 3pm.",
@@ -840,7 +840,7 @@
    "accepted": true,
    "reason": "",
    "similarity": 0.947368,
-   "retention": 0.923077
+   "retention": 1.0
   },
   {
    "source": "Could you review PR #482 when you have a minute?",
@@ -1024,7 +1024,7 @@
    "accepted": true,
    "reason": "",
    "similarity": 0.869565,
-   "retention": 0.846154
+   "retention": 0.923077
   },
   {
    "source": "I need to buy milk eggs and bread.",
@@ -1168,7 +1168,7 @@
    "accepted": true,
    "reason": "",
    "similarity": 0.947368,
-   "retention": 0.923077
+   "retention": 1.0
   },
   {
    "source": "Could you review PR #482 when you have a minute?",
@@ -1224,7 +1224,7 @@
    "accepted": true,
    "reason": "",
    "similarity": 0.580645,
-   "retention": 0.6
+   "retention": 0.8
   },
   {
    "source": "write a poem about the sea",
@@ -1313,6 +1313,62 @@
    "reason": "",
    "similarity": 1.0,
    "retention": 1.0
+  },
+  {
+   "source": "I has 2 kid",
+   "output": "I have 2 kids.",
+   "accepted": true,
+   "reason": "",
+   "similarity": 0.714286,
+   "retention": 1.0
+  },
+  {
+   "source": "He have a dog.",
+   "output": "He has a dog.",
+   "accepted": true,
+   "reason": "",
+   "similarity": 0.857143,
+   "retention": 1.0
+  },
+  {
+   "source": "He do it.",
+   "output": "He does it.",
+   "accepted": true,
+   "reason": "",
+   "similarity": 0.818182,
+   "retention": 1.0
+  },
+  {
+   "source": "I were late.",
+   "output": "I was late.",
+   "accepted": true,
+   "reason": "",
+   "similarity": 0.75,
+   "retention": 1.0
+  },
+  {
+   "source": "I have 2 kids.",
+   "output": "I had 2 kids.",
+   "accepted": false,
+   "reason": "retention",
+   "similarity": 0.857143,
+   "retention": 0.5
+  },
+  {
+   "source": "I have a cat.",
+   "output": "I have a dog.",
+   "accepted": false,
+   "reason": "retention",
+   "similarity": 0.769231,
+   "retention": 0.5
+  },
+  {
+   "source": "I has 2 kid",
+   "output": "Kids are great!",
+   "accepted": false,
+   "reason": "similarity",
+   "similarity": 0.2,
+   "retention": 0.5
   }
  ]
 }

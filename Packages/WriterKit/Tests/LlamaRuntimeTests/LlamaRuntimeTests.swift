@@ -32,6 +32,22 @@ final class LlamaRuntimeTests: XCTestCase {
         XCTAssertTrue(result.output.hasPrefix("I don't know what to do"), result.output)
     }
 
+    func testFixesShortSubjectVerbAndPluralErrors() async throws {
+        let generator = try LlamaGenerator(modelPath: try modelPath(), format: format, configuration: .keyboard)
+        let library = try PromptLibrary.bundled()
+        let input = "I has 2 kid"
+        let prompt = try library.render(action: "fix", text: input, format: format)
+        let generated = try await generator.generate(prompt, maxTokens: 48, onPartial: nil)
+        let output = library.clean(generated.text, format: format)
+        let verdict = try OutputGuard(library: library, action: "fix").evaluate(source: input, output: output)
+        print("METRIC short_grammar_output=\(output.debugDescription) verdict=\(verdict)")
+        XCTAssertTrue(["I have 2 kids.", "I have two kids.", "I have 2 kids", "I have two kids"].contains(output), output)
+        let assistant = WritingAssistant(library: library, generator: generator)
+        let result = try await assistant.run(actionID: "fix", text: input)
+        XCTAssertEqual(result.output, output)
+        XCTAssertEqual(result.rejectedChunks, 0)
+    }
+
     func testPrefixSnapshotIsReusedAndDeterministic() async throws {
         let library = try PromptLibrary.bundled()
         let generator = try LlamaGenerator(modelPath: try modelPath(), format: format, configuration: .keyboard)

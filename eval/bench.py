@@ -98,12 +98,25 @@ def words(s):
     return WORD_RE.findall(s.lower().replace("'", "").replace("’", ""))
 
 
+AGREEMENT_FORMS = {
+    "am": "be", "is": "be", "are": "be",
+    "was": "was", "were": "was",
+    "has": "have", "have": "have",
+    "do": "do", "does": "do",
+}
+
+
+def agreement_form(word):
+    return AGREEMENT_FORMS.get(word, word)
+
+
 def word_retention(source, output):
     src = {w for w in words(source) if len(w) >= 3}
     if not src:
         return 1.0
     out = set(words(output))
-    kept = sum(1 for w in src if w in out or any(1.0 - osa_distance(w, o) / max(len(w), len(o)) >= 0.6 for o in out))
+    output_forms = {agreement_form(w) for w in out}
+    kept = sum(1 for w in src if agreement_form(w) in output_forms or any(1.0 - osa_distance(w, o) / max(len(w), len(o)) >= 0.6 for o in out))
     return kept / len(src)
 
 
@@ -113,9 +126,10 @@ def leaked_words(prompts, action, source, output):
     if not ex:
         return []
     src = set(words(source))
+    source_forms = {agreement_form(w) for w in src}
     leaked = []
     for w in set(words(output)):
-        if len(w) >= 4 and w in ex and not any(1.0 - osa_distance(w, s) / max(len(w), len(s)) >= 0.6 for s in src):
+        if len(w) >= 4 and w in ex and agreement_form(w) not in source_forms and not any(1.0 - osa_distance(w, s) / max(len(w), len(s)) >= 0.6 for s in src):
             leaked.append(w)
     return sorted(leaked)
 

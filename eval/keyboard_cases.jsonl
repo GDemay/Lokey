@@ -1,4 +1,6 @@
 {"id": "typo-01", "cat": "typo", "input": "I recieved your mesage yesterday.", "accept": ["I received your message yesterday."]}
+{"id": "short-agreement-01", "cat": "grammar", "input": "I has 2 kid", "accept": ["I have 2 kids.", "I have two kids."]}
+{"id": "short-agreement-02", "cat": "grammar", "input": "He have a dog.", "accept": ["He has a dog."]}
 {"id": "typo-02", "cat": "typo", "input": "Teh meeting is at 3pm.", "accept": ["The meeting is at 3pm.", "The meeting is at 3 pm.", "The meeting is at 3 PM.", "The meeting is at 3PM.", "The meeting is at 3 p.m."]}
 {"id": "typo-03", "cat": "typo", "input": "Its definately the best option.", "accept": ["It's definitely the best option."]}
 {"id": "typo-04", "cat": "typo", "input": "We need to seperate the two files.", "accept": ["We need to separate the two files."]}

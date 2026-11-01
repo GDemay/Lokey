@@ -9,7 +9,8 @@ changes (`.github/workflows/eval.yml`).
 - Prompts and output guard: `Packages/WriterKit/Sources/WritingCore/Resources/prompts.json`
   (the file the app ships). Greedy decoding, Q4_0 QAD weights.
 - Hardware: 4-thread x86-64 Linux VM (not an iPhone; use these for relative comparison).
-- **Keyboard cases**: `eval/keyboard_cases.jsonl`, 70 cases in 10 categories. A case counts as
+- **Keyboard cases**: `eval/keyboard_cases.jsonl`, originally 70 cases in 10 categories;
+  two short agreement cases were added on 2026-11-01. A case counts as
   correct if what the user would see (the model output, or the original text if the guard rejected
   the output) matches an accepted answer. "Harmful" = the user would see an edit that is neither an
   accepted answer nor close to their own text.
@@ -175,3 +176,23 @@ recover some cases; they would need their own eval run.
 - ESL constructions ("I have 25 years old", "We discussed about") are the weakest category (56% for 1.2B).
 - Rare meaning changes the guard cannot detect: "We need to seperate…" → "I need to separate…" (1.2B).
 - The 230M model is not useful for grammar, only capitalization and simple typos.
+
+## Short grammar corrections (local check, 2026-11-01)
+
+The model returned `I have 2 kids.` for `I has 2 kid`, but the output guard rejected
+it. The retention check counts source words of three or more letters: only `has`
+and `kid` in this case. It recognized `kid` → `kids`, but not `has` → `have`, so
+retention was 0.5, below the 0.6 threshold.
+
+The Swift and Python checks now recognize same-tense subject agreement forms:
+`am/is/are`, `was/were`, `has/have`, and `do/does`. The threshold is unchanged.
+The example's retention is now 1.0. Every decision on the 152 existing guard
+examples stays unchanged; seven new examples cover agreement and rejected changes
+to tense or content.
+
+On this Mac, LFM2.5-1.2B passes both added cases (`I has 2 kid`, `He have a dog.`).
+The expanded set scores 56/72 (77.8%), with zero harmful edits under the metric
+above, a 191 ms mean and a 244 ms p90. This does not imply perfect corrections or
+detect every meaning change. The full 34 core/model tests pass. Simulator checks
+also pass for the editor and for typing the exact short sentence on the in-app
+keyboard, generating its correction, and applying it.

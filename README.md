@@ -84,9 +84,10 @@ turn off **Device › Keyboard › Simulate Hardware Keyboard**. If the iPhone
 keyboard is hidden, choose **Toggle Software Keyboard** from the same menu.
 
 Checked locally on 2026-11-01 with Xcode 27.2 and an iPhone 18 Pro simulator
-running iOS 27.0: all 32 core/model tests and all six app checks pass, including
-the system keyboard. The 70-case correction check scores 77.1% with no harmful
-rewrites. A physical iPhone still needs separate testing.
+running iOS 27.0: the core/model tests and app checks pass, including the system
+keyboard. The latest correction check scores 56/72 (77.8%) with no harmful edits
+under its metric; see `docs/BENCHMARK.md` for details and limits. A physical
+iPhone still needs separate testing.
 
 For Xcode editing and device builds:
 
