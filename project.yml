@@ -32,8 +32,6 @@ targets:
         product: WritingCore
       - package: WriterKit
         product: LlamaRuntime
-      - package: WriterKit
-        product: KeyboardUI
       - target: LokeyKeyboard
     info:
       path: App/Info.plist

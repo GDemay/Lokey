@@ -193,6 +193,19 @@ to tense or content.
 On this Mac, LFM2.5-1.2B passes both added cases (`I has 2 kid`, `He have a dog.`).
 The expanded set scores 56/72 (77.8%), with zero harmful edits under the metric
 above, a 191 ms mean and a 244 ms p90. This does not imply perfect corrections or
-detect every meaning change. The full 34 core/model tests pass. Simulator checks
-also pass for the editor and for typing the exact short sentence on the in-app
-keyboard, generating its correction, and applying it.
+detect every meaning change. The full 34 core/model tests pass. The initial
+Simulator checks covered the old editor and keyboard preview. The setup-only app
+now checks the same sentence through the real system keyboard, including applying
+the correction and automatic correction with Undo.
+
+## Setup-only app (2026-11-01)
+
+The containing app now handles keyboard setup, model downloads, and settings.
+It no longer creates an inference engine or embeds a keyboard preview. Its
+optional check screen is a native text field using the selected iOS keyboard.
+
+On the iPhone 18 Pro simulator (iOS 27.0, Debug build), the idle setup app has a
+24 MB physical footprint and a 25 MB peak, measured with `footprint`. The old
+app's in-app correction workflow logged about 788 MB after loading and repacking
+the model. These are different workflows: inference now runs only in the keyboard
+extension. This does not establish the keyboard's memory use on a physical phone.

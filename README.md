@@ -9,6 +9,27 @@ category (e.g. AiText) don't do.
 > Status: prototype. CI builds the app and keyboard extension and runs end-to-end tests on
 > the iOS Simulator with a real on-device model (`.github/workflows/ios.yml`). Not on the App Store.
 
+## Use Lokey as your keyboard
+
+The app handles setup and settings. Type and correct text in your usual apps
+with the Lokey keyboard. There is no separate writing app or keyboard preview.
+
+1. Open Lokey and download the recommended model once over Wi-Fi.
+2. Tap **Open iPhone Settings**, go back to the main list, then choose
+   **General → Keyboard → Keyboards → Add New Keyboard → Lokey**.
+   Tap **Lokey → Allow Full Access**.
+3. Open a text field in an app, hold the globe key, and choose **Lokey**.
+
+To put Lokey first, open **Settings → General → Keyboard → Keyboards**, tap
+**Edit**, and drag Lokey to the top. **Check your keyboard** in Lokey opens a
+normal text field that uses the real iOS keyboard.
+
+Allow Full Access lets the app and keyboard share settings. Text is processed
+locally, and the keyboard makes no network requests. iOS uses its own keyboard
+for passwords and phone-number fields; apps may also block custom keyboards.
+See Apple's [keyboard setup steps](https://support.apple.com/en-euro/guide/iphone/iph73b71eb/ios)
+and [custom keyboard limits](https://developer.apple.com/documentation/uikit/configuring-a-custom-keyboard-interface).
+
 ## Features
 
 | | Lokey | AiText (reference) |
@@ -46,7 +67,7 @@ Keyboard extension (UIInputViewController + SwiftUI)
 
 | Path | What |
 |---|---|
-| `App/` | SwiftUI containing app: editor, keyboard preview, model manager, settings, onboarding |
+| `App/` | Keyboard setup, model downloads, settings, and a native text field to check the real keyboard |
 | `Keyboard/` | Keyboard extension |
 | `Packages/WriterKit/` | `WritingCore`, `LlamaRuntime`, `KeyboardUI` + tests |
 | `UITests/` | End-to-end Simulator tests with a real model |
@@ -70,9 +91,10 @@ In Codex, open this folder as a local project and choose **Run Lokey** from the
 project actions. **Open in Xcode** opens the source project for editing and debugging.
 
 This builds the app, downloads and checks the recommended model, and opens a
-reusable **Lokey Local** iPhone simulator. Finish the welcome screens, then type
-in **Write**, tap **Fix**, and tap **Replace**. Corrections run on this Mac,
-without a server. Edit the source and run the same command to rebuild. The
+reusable **Lokey Local** iPhone simulator. Follow the setup steps and open
+**Check your keyboard**. Choose Lokey with the globe key, type your text, then
+tap **Fix → Apply** above the keys. Corrections run on this Mac without a server.
+Edit the source and run the same command to rebuild. The
 simulator keeps your model and settings. No Apple developer account is needed.
 
 Install Xcode with an iOS 26 or newer simulator, and `brew install xcodegen cmake`
@@ -113,12 +135,11 @@ Linux (core + llama.cpp integration): `LLAMA_PREFIX=<dir with include/llama.h, l
 
 ## Privacy
 
-The keyboard asks for Full Access only so it can read the model file the app downloaded into the
-shared App Group container. Apple's current documentation says keyboards without Full Access get
-read-only access to that container, which would be enough; this still has to be verified on a
-device before dropping the request. Lokey has
-no backend; the keyboard makes no network requests; the app only downloads model files from
-Hugging Face.
+Full Access lets the keyboard share settings and report its setup status to the
+app. The keyboard processes text on the iPhone and makes no network requests.
+The app only connects to Hugging Face to download model files. Apple permits
+read-only access to shared model files without Full Access; using that mode
+still needs device testing before changing the setup flow.
 
 ## Docs
 

@@ -17,12 +17,17 @@ that are the product:
 
 Non-goals: cloud inference, analytics, accounts, anything that sends user text off the device.
 
+The containing app is for keyboard setup, model downloads, and settings. Do not
+add a standalone writing editor or an in-app imitation of the keyboard. The
+optional keyboard check is a normal text field using the selected iOS keyboard.
+The app does not run inference; the real keyboard extension does.
+
 ## 2. Architecture
 
 ```
 App/ (SwiftUI containing app)        Keyboard/ (UIInputViewController extension)
-  editor, keyboard preview,             hosts KeyboardUI, bridges UITextDocumentProxy,
-  model manager, settings, onboarding   loads the model (KeyboardEngine), reports status
+  setup, model downloads, settings,     hosts KeyboardUI, bridges UITextDocumentProxy,
+  native keyboard-check text field     loads the model (KeyboardEngine), reports status
         \___________________________________/
                         |
 Packages/WriterKit (Swift package)
@@ -132,7 +137,7 @@ cd Packages/WriterKit && swift test                       # macOS: unit tests
 scripts/fetch-model.sh lfm2.5-350m-q4                     # downloads to .models/, SHA-256 checked
 LOKEY_TEST_MODEL=$PWD/.models/LFM2.5-350M-QAD-Q4_0.gguf \
 LOKEY_EVAL_CASES=$PWD/eval/keyboard_cases.jsonl \
-  swift test --package-path Packages/WriterKit            # + real-model integration tests and 70-case eval
+  swift test --package-path Packages/WriterKit            # + real-model integration tests and correction eval
 MODEL_FILE=.models/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf scripts/ci/ios-e2e.sh   # Simulator E2E + screenshots
 ```
 
@@ -177,7 +182,16 @@ Integration-test environment variables:
   - Runs only when prompts, the catalog or the harness change.
 - **Code signing:** CI signs ad hoc (`CODE_SIGN_IDENTITY=-`), which is enough for the Simulator.
 
-## 6. Status (2026-10-30)
+## 6. Status
+
+The 2026-11-01 app is setup-only. Its UI tests cover setup and model/settings
+navigation, the iPhone Settings shortcut, the real keyboard correcting
+`I has 2 kid` → `I have 2 kids.`, and automatic correction with Undo through
+`UITextDocumentProxy`. A physical iPhone is not connected to this development
+Mac, so device validation remains open.
+
+The measurements below were recorded on 2026-10-30, before the standalone editor
+and keyboard preview were removed:
 
 Verified:
 - **Unit tests:** core unit + parity tests pass on Linux and macOS.

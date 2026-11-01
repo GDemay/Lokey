@@ -5,7 +5,6 @@ import SwiftUI
 import UIKit
 import WritingCore
 
-/// App-wide state: models, downloads, settings, and the in-app writing engine.
 @MainActor
 final class AppModel: ObservableObject {
     enum DownloadState: Equatable {
@@ -15,7 +14,6 @@ final class AppModel: ObservableObject {
     }
 
     let catalog: ModelCatalog
-    let library: PromptLibrary
     let store = ModelStore.shared()
     private let settingsStore = SettingsStore.shared()
     private let downloader = ModelDownloader()
@@ -24,17 +22,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var installed: Set<String> = []
     @Published private(set) var downloads: [String: DownloadState] = [:]
     @Published private(set) var keyboardStatus: KeyboardStatus?
-    @Published private(set) var keyboardEnabled = false
-
-    private var engine: (id: String, assistant: WritingAssistant)?
 
     init() {
         catalog = try! ModelCatalog.bundled()
-        library = try! PromptLibrary.bundled()
         var loaded = SettingsStore.shared().load()
         if ProcessInfo.processInfo.arguments.contains("--uitest") {
-            loaded.hasCompletedOnboarding = true
             loaded.showChangesBeforeApplying = true
+            loaded.autocorrectMode = .automatic
         }
         settings = loaded
         if ProcessInfo.processInfo.arguments.contains("--uitest") { settingsStore.save(loaded) }
@@ -49,31 +43,10 @@ final class AppModel: ObservableObject {
     func refresh() {
         installed = Set(store.installed(in: catalog).map(\.id))
         keyboardStatus = settingsStore.loadKeyboardStatus()
-        // iOS lists enabled keyboards (including third-party ones) under this key.
-        let enabled = UserDefaults.standard.object(forKey: "AppleKeyboards") as? [String] ?? []
-        keyboardEnabled = enabled.contains(Brand.keyboardBundleID)
-    }
-
-    // MARK: Engine
-
-    func assistant() async throws -> WritingAssistant {
-        guard let model = activeModel else {
-            throw GeneratorError.unavailable("No model downloaded yet. Download one in Models.")
-        }
-        let key = model.id + (settings.useGPU ? "+gpu" : "")
-        if let engine, engine.id == key { return engine.assistant }
-        engine = nil
-        let settings = self.settings, catalog = self.catalog, store = self.store, library = self.library
-        let (assistant, _) = try await Task.detached(priority: .userInitiated) {
-            try AssistantFactory.make(context: .app, settings: settings, catalog: catalog, store: store, library: library)
-        }.value
-        engine = (key, assistant)
-        return assistant
     }
 
     func select(_ model: ModelInfo) {
         settings.selectedModelID = model.id
-        engine = nil
     }
 
     // MARK: Downloads
@@ -95,7 +68,6 @@ final class AppModel: ObservableObject {
 
     func delete(_ model: ModelInfo) {
         try? store.delete(model)
-        if engine?.id.hasPrefix(model.id) == true { engine = nil }
         refresh()
     }
 

@@ -1,18 +1,18 @@
 import XCTest
 
-/// End-to-end tests on the iOS Simulator with a real on-device model.
-/// CI copies the GGUF into the App Group container before running (scripts/ci/ios-e2e.sh).
 final class LokeyUITests: XCTestCase {
     private var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments += ["--uitest"]
+        app.launchArguments = ["--uitest"]
         app.launch()
     }
 
-    // MARK: Helpers
+    private func element(_ id: String, in root: XCUIApplication? = nil) -> XCUIElement {
+        (root ?? app).descendants(matching: .any).matching(identifier: id).firstMatch
+    }
 
     private func screenshot(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
@@ -21,234 +21,152 @@ final class LokeyUITests: XCTestCase {
         add(attachment)
     }
 
-    private func element(_ id: String, in root: XCUIApplication? = nil) -> XCUIElement {
-        (root ?? app).descendants(matching: .any).matching(identifier: id).firstMatch
+    private func openKeyboardCheck() {
+        XCTAssertTrue(element("setup.modelReady").waitForExistence(timeout: 10), "Install a model in the App Group before running these tests.")
+        let check = element("setup.checkKeyboard")
+        if !check.isHittable { app.swipeUp() }
+        check.tap()
+        XCTAssertTrue(app.textViews["setup.testText"].waitForExistence(timeout: 5))
+        app.textViews["setup.testText"].tap()
     }
 
-    private func requireModel() throws {
-        app.tabBars.buttons["Write"].tap()
-        if element("editor.needsModel").waitForExistence(timeout: 2) {
-            throw XCTSkip("No model installed in the simulator's App Group container")
-        }
+    private var keyboardProcess: XCUIApplication {
+        XCUIApplication(bundleIdentifier: "com.gdemay.lokey.keyboard")
     }
 
-    /// Types with the in-app keyboard by tapping its keys.
-    private func typeOnKeyboard(_ text: String) {
-        for ch in text {
-            switch ch {
-            case " ": element("kb.space").tap()
-            default: element("kb.key.\(String(ch).lowercased())").tap()
-            }
-        }
+    private func key(_ id: String) -> XCUIElement {
+        let inApp = element(id)
+        return inApp.exists ? inApp : element(id, in: keyboardProcess)
     }
 
-    /// Element value with typographic apostrophes normalized (iOS smart punctuation).
-    private func value(_ id: String) -> String {
-        (element(id).value as? String ?? "").replacingOccurrences(of: "\u{2019}", with: "'")
-    }
-
-    // MARK: Tests
-
-    func test01_ScreensRender() {
-        XCTAssertTrue(element("editor.text").waitForExistence(timeout: 10))
-        screenshot("01-write")
-        app.tabBars.buttons["Keyboard"].tap()
-        XCTAssertTrue(element("kb.fix").waitForExistence(timeout: 10))
-        screenshot("02-keyboard-preview")
-        element("kb.enhance").tap()
-        XCTAssertTrue(element("kb.action.professional").waitForExistence(timeout: 5))
-        screenshot("03-keyboard-enhance")
-        element("kb.back").tap()
-        app.tabBars.buttons["Models"].tap()
-        XCTAssertTrue(element("models.row.lfm2.5-1.2b-instruct-q4").waitForExistence(timeout: 10))
-        screenshot("04-models")
-        app.tabBars.buttons["Settings"].tap()
-        screenshot("05-settings")
-    }
-
-    func test02_EditorFixesTextOnDevice() throws {
-        try requireModel()
-        let editor = app.textViews["editor.text"]
-        editor.tap()
-        editor.typeText("i dont know what to do. their going to the park tomorow")
-        element("editor.fix").tap()
-        let result = element("editor.result")
-        XCTAssertTrue(result.waitForExistence(timeout: 240), "no result from the on-device model")
-        let output = (result.value as? String ?? "").replacingOccurrences(of: "\u{2019}", with: "'")
-        screenshot("06-editor-fix-result")
-        XCTAssertTrue(output.hasPrefix("I don't know what to do"), output)
-        XCTAssertTrue(output.contains("they're going to the park tomorrow") || output.contains("They're going to the park tomorrow"), output)
-
-        element("editor.replace").tap()
-        XCTAssertEqual((editor.value as? String)?.replacingOccurrences(of: "\u{2019}", with: "'"), output)
-        screenshot("07-editor-replaced")
-    }
-
-    func test03_KeyboardTypesAndFixes() throws {
-        try requireModel()
-        app.tabBars.buttons["Keyboard"].tap()
-        XCTAssertTrue(element("kb.fix").waitForExistence(timeout: 10))
-        typeOnKeyboard("i dont know what to do")
-        XCTAssertEqual(value("preview.text"), "I dont know what to do", "auto-capitalization should apply")
-
-        element("kb.fix").tap()
-        let apply = element("kb.apply")
-        XCTAssertTrue(apply.waitForExistence(timeout: 240), "no result panel")
-        screenshot("08-keyboard-fix-result")
-        apply.tap()
-        XCTAssertTrue(value("preview.text").hasPrefix("I don't know what to do"), value("preview.text"))
-        screenshot("09-keyboard-fix-applied")
-    }
-
-    func test06_EditingClearsOldCorrectionAndUndoRestoresInput() throws {
-        try requireModel()
-        let editor = app.textViews["editor.text"]
-        editor.tap()
-        editor.typeText("she have two brothers")
-        element("editor.fix").tap()
-        XCTAssertTrue(element("editor.replace").waitForExistence(timeout: 240))
-
-        editor.tap()
-        editor.typeText(" and a cat")
-        XCTAssertFalse(element("editor.result").exists)
-        XCTAssertFalse(element("editor.replace").exists)
-        let input = try XCTUnwrap(editor.value as? String)
-
-        element("editor.fix").tap()
-        XCTAssertTrue(element("editor.replace").waitForExistence(timeout: 240))
-        let output = try XCTUnwrap(element("editor.result").value as? String)
-        XCTAssertTrue(output.contains("has two brothers"), output)
-        element("editor.replace").tap()
-        XCTAssertEqual(editor.value as? String, output)
-        element("editor.undo").tap()
-        XCTAssertEqual(editor.value as? String, input)
-    }
-
-    func test07_KeyboardFixesShortAgreementErrors() throws {
-        try requireModel()
-        app.tabBars.buttons["Keyboard"].tap()
-        XCTAssertTrue(element("kb.fix").waitForExistence(timeout: 10))
-        element("preview.clear").tap()
-        typeOnKeyboard("i has ")
-        element("kb.layer").tap()
-        element("kb.key.2").tap()
-        element("kb.layer").tap()
-        typeOnKeyboard(" kid")
-        XCTAssertEqual(value("preview.text"), "I has 2 kid")
-        element("kb.fix").tap()
-        XCTAssertTrue(element("kb.apply").waitForExistence(timeout: 240))
-        screenshot("17-short-grammar-result")
-        element("kb.apply").tap()
-        XCTAssertTrue(["I have 2 kids.", "I have two kids.", "I have 2 kids", "I have two kids"].contains(value("preview.text")),
-                      value("preview.text"))
-        screenshot("18-short-grammar-applied")
-    }
-
-    func test04_AutocorrectsWhileTyping() throws {
-        try requireModel()
-        app.tabBars.buttons["Keyboard"].tap()
-        XCTAssertTrue(element("kb.fix").waitForExistence(timeout: 10))
-        element("preview.clear").tap()
-        typeOnKeyboard("their going to the park")
-        element("kb.key..").tap()
-        element("kb.space").tap()
-
-        let notice = element("kb.live.text")
-        XCTAssertTrue(notice.waitForExistence(timeout: 240), "no live correction")
-        screenshot("10-live-correction")
-        XCTAssertTrue(value("preview.text").hasPrefix("They're going to the park."), value("preview.text"))
-
-        element("kb.live.resolve").tap()  // Undo
-        XCTAssertTrue(value("preview.text").hasPrefix("Their going to the park."), value("preview.text"))
-        screenshot("11-live-correction-undone")
-    }
-
-    /// Best effort: enables the real keyboard extension in Settings and uses it in the app.
-    /// Settings UI differs across iOS versions, so missing steps skip rather than fail.
-    func test05_SystemKeyboardExtension() throws {
-        try requireModel()
-        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
-        settings.launch()
-        func tapCell(_ label: String) throws {
-            // Prefix match: iOS labels vary ("Add New Keyboard…" vs "Add New Keyboard...").
-            let predicate = NSPredicate(format: "label BEGINSWITH %@", label)
-            func candidate() -> XCUIElement? {
-                for query in [settings.cells, settings.buttons, settings.staticTexts] {
-                    let element = query.matching(predicate).firstMatch
-                    if element.exists && element.isHittable { return element }
-                }
-                return nil
-            }
-            _ = settings.cells.firstMatch.waitForExistence(timeout: 5)
-            var found = candidate()
-            for _ in 0..<6 where found == nil {
-                settings.swipeUp()
-                found = candidate()
-            }
-            guard let element = found else {
-                screenshot("settings-missing-\(label)")
-                throw XCTSkip("Settings step not found: \(label)")
-            }
-            element.tap()
-        }
-        try tapCell("General")
-        try tapCell("Keyboard")
-        try tapCell("Keyboards")
-        let alreadyAdded = settings.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Lokey'")).firstMatch
-        if !alreadyAdded.waitForExistence(timeout: 2) {
-            try tapCell("Add New Keyboard")
-            try tapCell("Lokey")
-        }
-        screenshot("12-settings-keyboard-added")
-        if alreadyAdded.waitForExistence(timeout: 3) {
-            alreadyAdded.tap()
-            let toggle = settings.switches.firstMatch
-            if toggle.waitForExistence(timeout: 3), (toggle.value as? String) == "0" {
-                // On iOS 26 the switch element spans the row; tapping its centre hits the label.
-                toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-                // The confirmation alert can belong to Settings or to SpringBoard.
-                let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-                for owner in [settings, springboard] {
-                    let allow = owner.alerts.buttons["Allow"]
-                    if allow.waitForExistence(timeout: 3) { allow.tap(); break }
-                }
-            }
-            let granted = (toggle.value as? String) == "1"
-            print("METRIC system_keyboard_full_access=\(granted ? 1 : 0)")
-            screenshot("13-settings-full-access")
-        }
-
-        app.terminate()
-        app.launch()
-        app.tabBars.buttons["Write"].tap()
-        let editor = app.textViews["editor.text"]
-        XCTAssertTrue(editor.waitForExistence(timeout: 10))
-        editor.tap()
-        // The extension's UI is reachable from the host app or through its own bundle identifier.
-        let keyboardProcess = XCUIApplication(bundleIdentifier: "com.gdemay.lokey.keyboard")
-        func key(_ id: String) -> XCUIElement {
-            let inApp = element(id)
-            return inApp.exists ? inApp : keyboardProcess.descendants(matching: .any).matching(identifier: id).firstMatch
-        }
+    private func selectLokeyKeyboard() {
         let globe = app.buttons["Next keyboard"]
-        for _ in 0..<4 where !key("kb.fix").exists {
+        for _ in 0..<5 where !key("kb.fix").exists {
             guard globe.waitForExistence(timeout: 3) else { break }
             globe.tap()
         }
-        guard key("kb.fix").waitForExistence(timeout: 5) else {
-            screenshot("14-system-keyboard-not-reachable")
-            throw XCTSkip("Could not switch to the Lokey keyboard (hardware keyboard connected?)")
+        XCTAssertTrue(key("kb.fix").waitForExistence(timeout: 10), "Enable Lokey in Settings and turn off the simulator's hardware keyboard.")
+    }
+
+    private func typeOnKeyboard(_ text: String) {
+        for character in text {
+            key(character == " " ? "kb.space" : "kb.key.\(character)").tap()
         }
-        screenshot("14-system-keyboard")
-        for ch in "she have two brothers" {
-            key(ch == " " ? "kb.space" : "kb.key.\(ch)").tap()
+    }
+
+    private func tapSettingsRow(_ label: String, in settings: XCUIApplication) throws {
+        let predicate = NSPredicate(format: "label BEGINSWITH %@", label)
+        func candidate() -> XCUIElement? {
+            for query in [settings.cells, settings.buttons, settings.staticTexts] {
+                let row = query.matching(predicate).firstMatch
+                if row.exists && row.isHittable { return row }
+            }
+            return nil
         }
+        _ = settings.cells.firstMatch.waitForExistence(timeout: 5)
+        var found = candidate()
+        for _ in 0..<6 where found == nil {
+            settings.swipeUp()
+            found = candidate()
+        }
+        try XCTUnwrap(found, "Settings row missing: \(label)").tap()
+    }
+
+    func test01_SetupAndSettings() {
+        XCTAssertTrue(element("setup.modelReady").waitForExistence(timeout: 10))
+        XCTAssertFalse(app.tabBars.firstMatch.exists)
+        XCTAssertFalse(element("editor.text").exists)
+        XCTAssertFalse(key("kb.fix").exists)
+        screenshot("01-keyboard-setup")
+        element("setup.models").tap()
+        XCTAssertTrue(element("models.row.lfm2.5-1.2b-instruct-q4").waitForExistence(timeout: 5))
+        screenshot("02-models")
+        app.navigationBars.buttons.firstMatch.tap()
+        element("setup.settings").tap()
+        XCTAssertTrue(element("settings.autocorrect").waitForExistence(timeout: 5))
+        XCTAssertFalse(app.switches["Use GPU in the app"].exists)
+        screenshot("03-keyboard-settings")
+    }
+
+    func test02_SettingsShortcut() throws {
+        let open = element("setup.openSettings")
+        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        if !open.isHittable { app.swipeUp() }
+        open.tap()
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 10))
+        for _ in 0..<6 where !settings.navigationBars["Settings"].exists {
+            let back = settings.navigationBars.buttons.matching(identifier: "BackButton").firstMatch
+            if !back.waitForExistence(timeout: 3) { break }
+            back.tap()
+        }
+        XCTAssertTrue(settings.navigationBars["Settings"].waitForExistence(timeout: 5))
+        try tapSettingsRow("General", in: settings)
+        try tapSettingsRow("Keyboard", in: settings)
+        try tapSettingsRow("Keyboards", in: settings)
+        let addKeyboard = settings.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Add New Keyboard'")).firstMatch
+        XCTAssertTrue(addKeyboard.waitForExistence(timeout: 5))
+        screenshot("04-iphone-settings")
+    }
+
+    func test03_SystemKeyboardFixesShortGrammar() throws {
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settings.terminate()
+        settings.launch()
+        try tapSettingsRow("General", in: settings)
+        try tapSettingsRow("Keyboard", in: settings)
+        try tapSettingsRow("Keyboards", in: settings)
+        let lokey = settings.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Lokey'")).firstMatch
+        if !lokey.waitForExistence(timeout: 2) {
+            try tapSettingsRow("Add New Keyboard", in: settings)
+            try tapSettingsRow("Lokey", in: settings)
+        }
+        XCTAssertTrue(lokey.waitForExistence(timeout: 3))
+        lokey.tap()
+        let toggle = settings.switches.firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        if (toggle.value as? String) == "0" {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            for owner in [settings, XCUIApplication(bundleIdentifier: "com.apple.springboard")] {
+                let allow = owner.alerts.buttons["Allow"]
+                if allow.waitForExistence(timeout: 3) { allow.tap(); break }
+            }
+        }
+        XCTAssertEqual(toggle.value as? String, "1")
+
+        app.activate()
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+        typeOnKeyboard("i has ")
+        key("kb.layer").tap()
+        key("kb.key.2").tap()
+        key("kb.layer").tap()
+        typeOnKeyboard(" kid")
+        let editor = app.textViews["setup.testText"]
+        XCTAssertEqual(editor.value as? String, "I has 2 kid")
         key("kb.fix").tap()
-        let apply = key("kb.apply")
-        XCTAssertTrue(apply.waitForExistence(timeout: 240))
-        screenshot("15-system-keyboard-result")
-        apply.tap()
-        XCTAssertTrue((editor.value as? String ?? "").contains("has two brothers"), editor.value as? String ?? "")
-        screenshot("16-system-keyboard-applied")
+        XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 240))
+        screenshot("05-system-keyboard-result")
+        key("kb.apply").tap()
+        let output = try XCTUnwrap(editor.value as? String)
+        XCTAssertTrue(["I have 2 kids.", "I have two kids.", "I have 2 kids", "I have two kids"].contains(output), output)
+        screenshot("06-system-keyboard-applied")
+    }
+
+    func test04_SystemKeyboardAutocorrectAndUndo() throws {
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+        typeOnKeyboard("their going to the park")
+        key("kb.key..").tap()
+        key("kb.space").tap()
+        XCTAssertTrue(key("kb.live.text").waitForExistence(timeout: 240))
+        let editor = app.textViews["setup.testText"]
+        let corrected = try XCTUnwrap(editor.value as? String).replacingOccurrences(of: "\u{2019}", with: "'")
+        XCTAssertTrue(corrected.hasPrefix("They're going to the park."), corrected)
+        screenshot("07-system-keyboard-live-correction")
+        key("kb.live.resolve").tap()
+        let undone = try XCTUnwrap(editor.value as? String)
+        XCTAssertTrue(undone.hasPrefix("Their going to the park."), undone)
+        screenshot("08-system-keyboard-undo")
     }
 }
