@@ -2,6 +2,7 @@
 
 Use this workflow for Lokey. The Apple app ID is `6829549183`; the bundle ID is
 `com.gdemay.lokey`. Do not create another app record. Start with `STATUS.md`.
+For a new chat, use [AGENT_BRIEF.md](AGENT_BRIEF.md) and add the task you want done.
 
 ## Access on this Mac
 
@@ -41,8 +42,8 @@ after a successful signed upload. Do not revoke the account's other certificates
 
 ## Check and update the listing
 
-Edit `app.json`, the two `listing.json` files, `what-to-test.txt`, and
-`review-notes.txt`. The wrapper generates canonical CLI metadata under
+Edit the source files under `store/`: `app.json`, both `listing.json` files,
+`what-to-test.txt`, and `review-notes.txt`. The wrapper generates metadata under
 `build/store/metadata/`; that folder is replaced on each generation. Do not edit
 those generated files. Complete API reports stay under ignored `build/store/`.
 
@@ -54,7 +55,17 @@ python3 scripts/app-store.py apply       # Save the listing, without submitting
 python3 scripts/app-store.py test-notes  # Create or update beta notes
 python3 scripts/app-store.py review-notes
 python3 scripts/app-store.py ready       # Read-only checks; nonzero if blocked
+python3 scripts/app-store.py screenshots-check --locale en-US
+python3 scripts/app-store.py screenshots-check --locale fr-FR
 ```
+
+`status` also reports expiry, internal-group membership, and whether Apple has a
+newer build than `store/app.json`. `ready` requires the local App Store IPA; it
+fails if that file is missing. Use `--ipa /absolute/path/Lokey.ipa` for another
+location. For metadata-only checks without a package, use the read-only
+`asc validate` command directly and state that binary checks were not run.
+`screenshots-check` reads Apple and checks local file hashes and saved image order;
+it does not upload, remove, or reorder images.
 
 `review-notes` updates the existing review record. It also fills the TestFlight
 app description, feedback email, and review details using the private contact
@@ -92,7 +103,7 @@ upload uses the `lokey` API key, the local distribution signing key, and the two
 installed profiles. It does not use Xcode's saved upload login or cloud signing.
 The App Manager API key was denied cloud signing, so keep the local identity.
 Archive signing uses the installed development identity and profiles for personal
-team `GB87Z9SKC5`. Increment the build in both `project.yml` and `app.json` before
+team `GB87Z9SKC5`. Increment the build in both `project.yml` and `store/app.json` before
 a new upload. Both shipping targets must remain iPhone-only.
 
 `upload-archive.py` securely exports the API key to a private temporary folder for
@@ -104,6 +115,8 @@ archive without rebuilding:
 python3 scripts/upload-archive.py --archive build/release/Lokey.xcarchive --team GB87Z9SKC5
 ```
 
+To check an existing archive without signing or uploading it, add `--check-only`.
+
 An already signed App Store IPA can also be uploaded with the API key:
 
 ```sh
@@ -113,7 +126,7 @@ asc --profile lokey builds upload --app 6829549183 --ipa /absolute/path/Lokey.ip
 Do not upload the same build again to check processing. Apple can take several
 minutes to expose a successful upload as a build. Use
 `asc --profile lokey --read-only builds uploads list --app 6829549183` while waiting.
-Update `app.json` to the new version/build, then use `status` and `test-notes`. Resolve version IDs with
+Update `store/app.json` to the new version/build, then use `status` and `test-notes`. Resolve version IDs with
 `asc --profile lokey --read-only versions list --app 6829549183 --platform IOS`.
 Create a new version only after checking that it does not exist. Select the build:
 

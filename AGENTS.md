@@ -312,6 +312,8 @@ and makes the portrait-only app fail iPad multitasking validation.
 - Read `store/STATUS.md` and `store/CLI.md` before store work. Use `asc --profile lokey`
   and app ID `6829549183`. The API key is saved in this Mac's Keychain; do not create
   another key or app record just because a new chat has no credentials in its text.
+- `store/AGENT_BRIEF.md` is the short handoff for a new agent. Start with live,
+  read-only checks; a past status file is not proof of Apple's current state.
 - Use `python3 scripts/app-store.py` for status, listing checks, dry runs, listing
   updates, screenshots, beta notes, and review notes. The source data lives in
   `store/`; `build/store/` is generated and may include private review contacts.

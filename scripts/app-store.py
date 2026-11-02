@@ -76,10 +76,11 @@ def version_id():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["check", "status", "plan", "apply", "test-notes",
-                                           "screenshots", "review-notes", "ready"])
+                                           "screenshots", "screenshots-check", "review-notes", "ready"])
     parser.add_argument("--path", type=Path, default=STORE / "screenshots/iphone69")
     parser.add_argument("--device-type", default="IPHONE_69")
     parser.add_argument("--locale", default="en-US")
+    parser.add_argument("--ipa", type=Path, default=ROOT / "artifacts/release" / f"Lokey-{APP['version']}-AppStore.ipa")
     args = parser.parse_args()
     os.chdir(ROOT)
 
@@ -132,7 +133,8 @@ def main():
                     "--marketing-url", APP["marketing_url"], "--privacy-policy-url", APP["privacy_url"],
                     *flags, report=f"beta-info-{locale}.json")
         print("Saved review notes and TestFlight app information using the existing private review contact.")
-    elif args.action == "screenshots":
+    elif args.action in {"screenshots", "screenshots-check"}:
+        check_only = args.action == "screenshots-check"
         if args.device_type not in {"IPHONE_69", "IPHONE_67"}:
             raise SystemExit("This workflow manages the large Dynamic Island iPhone group. Use asc directly for other groups.")
         asc("screenshots", "validate", "--path", str(args.path), "--device-type", args.device_type)
@@ -143,6 +145,8 @@ def main():
                        "--reference-name", reference, "--paginate"]
             matches = asc(*command, read_only=True)["data"]
             if not matches:
+                if check_only:
+                    raise SystemExit(f"No matching Apple asset for {path.name}. Use screenshots to upload it.")
                 asc("asset-library", "images", "upload", "--library-id", APP["apple_id"],
                     "--file", str(path), "--category", "APP_SCREENSHOTS_AND_PREVIEWS",
                     "--reference-name", reference, report=f"asset-{path.stem}.json")
@@ -163,7 +167,13 @@ def main():
         command = ["localizations", "placements", "list", "--localization-id", localization,
                    "--placement-type", "APP_SCREENSHOT", "--placement-group", group,
                    "--include", "image", "--sort", "placementGroupPosition", "--paginate"]
-        placed = asc(*command, read_only=True)["data"]
+        placed = asc(*command, read_only=True, report=f"screenshots-check-{args.locale}.json")["data"]
+        if check_only:
+            actual = [item.get("relationships", {}).get("image", {}).get("data", {}).get("id") for item in placed]
+            if actual != assets or not all(item["attributes"]["state"] == "ACTIVE" for item in placed):
+                raise SystemExit("Apple's screenshot order or state does not match the local files.")
+            print(f"Verified {len(assets)} ACTIVE screenshots in local file order for {args.locale}. No Apple changes made.")
+            return
         kept = {}
         for placement in placed:
             asset = placement.get("relationships", {}).get("image", {}).get("data")
@@ -200,20 +210,30 @@ def main():
         detail = next(x["attributes"] for x in build["included"] if x["type"] == "buildBetaDetails")
         testers = asc("testflight", "groups", "testers", "list", "--group-id", AUTOMATION["internal_group_id"],
                       read_only=True, report="testers.json")
+        group_builds = asc("testflight", "groups", "builds", "list", "--group-id", AUTOMATION["internal_group_id"],
+                           "--paginate", read_only=True)["data"]
+        latest = asc("builds", "info", "--app", APP["apple_id"], "--latest", "--platform", "IOS", read_only=True)["data"]
+        attributes = build["data"]["attributes"]
         print(json.dumps({"app": APP["apple_id"], "version": APP["version"], "build": APP["build"],
-                          "processing": build["data"]["attributes"]["processingState"],
+                          "processing": attributes["processingState"],
+                          "expired": attributes["expired"], "expires": attributes["expirationDate"],
+                          "inInternalGroup": any(item["id"] == build["data"]["id"] for item in group_builds),
+                          "newerBuildAvailable": latest["id"] != build["data"]["id"],
+                          "latestBuild": {"id": latest["id"], "build": latest["attributes"]["version"],
+                                          "processing": latest["attributes"]["processingState"]},
                           "testflight": detail,
                           "testers": [{"state": x["attributes"]["state"]} for x in testers["data"]]}, indent=2))
     elif args.action == "ready":
+        ipa = args.ipa.resolve()
+        if not ipa.is_file():
+            raise SystemExit(f"App Store IPA is missing: {ipa}. Restore the release package or pass --ipa PATH. No full readiness verdict was issued.")
         identifier = version_id()
         version = asc("versions", "view", "--version-id", identifier, "--include-build", read_only=True)["data"]
         attached = version.get("relationships", {}).get("build", {}).get("data")
         if not attached or attached["id"] != build_id():
             raise SystemExit("The selected App Store build does not match store/app.json. Attach the intended build first.")
         command = ["validate", "--app", APP["apple_id"], "--version-id", identifier, "--platform", "IOS"]
-        ipa = ROOT / "artifacts/release" / f"Lokey-{APP['version']}-AppStore.ipa"
-        if ipa.exists():
-            command += ["--ipa", str(ipa)]
+        command += ["--ipa", str(ipa)]
         result = asc(*command, read_only=True, report="readiness.json", allow_failure=True)
         print(json.dumps({"summary": result.get("summary"), "checks": result.get("checks")}, indent=2))
         if result.get("summary", {}).get("blocking", 1):

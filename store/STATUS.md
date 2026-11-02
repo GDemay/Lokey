@@ -66,6 +66,21 @@ Local metadata validation passes. Repeating the metadata plan gives no changes.
 Reports are under ignored `build/store/`. Browser proof is under
 `artifacts/release/apple-setup/`.
 
+## Blind handoff test
+
+On November 2, a new agent with no chat history found and used the saved setup.
+It verified the live build, tester invitation, store readiness, listing, image
+order, local signing key, and retained package. It made no Apple or GitHub changes.
+No fresh upload or iPhone test was part of that check. The invitation is still
+pending acceptance. Privacy publication and account agreements were not checked
+live again; those remain the earlier website evidence.
+
+The handoff now includes `AGENT_BRIEF.md`, a read-only `screenshots-check` action,
+build expiry/group/latest-build status, and a clear failure when the release IPA
+is missing. The stale Ask AI feature row was fixed. Store and beta privacy URLs
+use a published commit permalink with the same policy content. Local audit reports
+are in `build/blind-check/`; they are not committed.
+
 ## Public release
 
 The app has **not** been submitted for public App Review or released on the App

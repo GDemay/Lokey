@@ -69,7 +69,7 @@ these app features and its bundled material; it does not certify a model safety 
   copyright, model rights, and contact information.
 - Publish the privacy policy and support page at stable public URLs. The policy
   source is `docs/PRIVACY.md`; support is the repository issue tracker. Use URLs
-  from the release branch or main only after those files are pushed.
+  from a published release or a full commit permalink. Do not link a working branch.
 - App Store signing and upload are complete for build 3. It is processed and in
   internal testing. `scripts/app-store.py status` reads the current state from Apple.
 - Six checked screenshots are saved in `store/screenshots/iphone69/`

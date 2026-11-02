@@ -39,7 +39,7 @@ and [custom keyboard limits](https://developer.apple.com/documentation/uikit/con
 |---|---|---|
 | Fix grammar, spelling, punctuation, capitalization | ✅ one tap, word-level diff | ✅ "Fix mistakes" |
 | Rewrite / tones | ✅ Rephrase, Professional, Friendly, Casual, Confident, Persuasive, Shorter, Longer, Emojify | ✅ "Enhance" (7 tones) |
-| Ask AI (write from a request) | ✅ | ✅ |
+| Ask AI (write from a request) | Hidden for first release | ✅ |
 | Translate | ✅ to English / French / Spanish / German | via output language |
 | **Autocorrect as you type** | ✅ each finished sentence; auto-apply small fixes with Undo, or suggest | ❌ |
 | Works offline / text never leaves the phone | ✅ llama.cpp on-device | ❌ OpenAI via their servers |
