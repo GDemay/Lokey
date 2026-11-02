@@ -22,17 +22,5 @@ for bundle in [app, app / "PlugIns/LokeyKeyboard.appex"]:
     if family != [1]:
         sys.exit(f"{bundle.name} must be iPhone-only; got UIDeviceFamily {family}")
 PY
-python3 - "$release/TestFlightExportOptions.plist" "$team" <<'PY'
-import plistlib, sys
-with open(sys.argv[1], "wb") as f:
-    plistlib.dump({"method": "app-store-connect", "destination": "upload",
-                  "signingStyle": "automatic", "teamID": sys.argv[2],
-                  "manageAppVersionAndBuildNumber": True, "uploadSymbols": True,
-                  "stripSwiftSymbols": True}, f)
-PY
-xcodebuild -exportArchive -archivePath "$release/Lokey.xcarchive" \
-  -exportPath "$release/testflight" -exportOptionsPlist "$release/TestFlightExportOptions.plist" \
-  -allowProvisioningUpdates > "$release/upload.log" 2>&1 \
-  || { tail -n 60 "$release/upload.log"; exit 1; }
-tail -n 12 "$release/upload.log"
+python3 scripts/upload-archive.py --archive "$release/Lokey.xcarchive" --team "$team"
 echo "Open https://appstoreconnect.apple.com/apps/6829549183/testflight to check processing and testers."

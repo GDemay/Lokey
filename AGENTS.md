@@ -6,7 +6,7 @@ how to build and test it, what is verified, and what to do next.
 ## 1. What Lokey is
 
 Lokey is a **free, open-source iOS keyboard that fixes English and French with a local LLM**: grammar,
-spelling, punctuation, tone rewrites ("Enhance"), translation and "Ask AI", in any app. It is the
+spelling, punctuation, tone rewrites ("Enhance"), and translation, in any app. It is the
 open alternative to the paid cloud app *AiText* (see `docs/RESEARCH.md`), with three differences
 that are the product:
 
@@ -227,10 +227,9 @@ Not verified / open:
 - **LFM3-1.7B (decided: optional, not the default):** 64.3% of the keyboard cases, 0 harmful, JFLEG
   GLEU 44.2, 1.66× slower than LFM2.5-1.2B (77.1%, 53.8) on the CI CPU. Its first CI eval (34%) was a
   harness bug, fixed (duplicated answers around `</think>`, `docs/BENCHMARK.md`).
-- **App Store:** not submitted for public review. App record 6829549183 exists and
-  build 1.0.0 (2) uploaded successfully for processing. Personal distribution signing
-  and App Groups are configured. Tester setup and website metadata are pending
-  Mac unlock and browser sign-in; see `store/STATUS.md`.
+- **App Store:** not submitted for public review. App record 6829549183 exists.
+  Internal TestFlight, localized store metadata, and distribution signing are
+  configured. See `store/STATUS.md` for the current build and remaining work.
 
 ## 7. Next steps (prioritized)
 
@@ -268,8 +267,8 @@ Not verified / open:
    - Add a guard for pronoun/person changes ("We need" → "I need").
    - Grow `eval/keyboard_cases.jsonl` with every bug you fix.
 5. **Product.**
-   - App Store prep: team, App Group, privacy label "Data Not Collected", screenshots, review notes
-     explaining Full Access (or dropping it, see 1).
+   - App Store: follow `store/STATUS.md`; complete wider TestFlight coverage before
+     public review. Team, App Group, privacy, screenshots, and review notes are set.
    - Background model downloads.
    - An Apple Foundation Models engine option on iOS 26 devices with Apple Intelligence.
    - More languages, iPad layout.
@@ -307,3 +306,20 @@ Not verified / open:
 App Store uploads use explicit target-level `TARGETED_DEVICE_FAMILY = 1` on the
 app and keyboard. A project-level value alone is overridden by XcodeGen defaults
 and makes the portrait-only app fail iPad multitasking validation.
+
+## 10. Store automation and first release
+
+- Read `store/STATUS.md` and `store/CLI.md` before store work. Use `asc --profile lokey`
+  and app ID `6829549183`. The API key is saved in this Mac's Keychain; do not create
+  another key or app record just because a new chat has no credentials in its text.
+- Use `python3 scripts/app-store.py` for status, listing checks, dry runs, listing
+  updates, screenshots, beta notes, and review notes. The source data lives in
+  `store/`; `build/store/` is generated and may include private review contacts.
+- Never commit private keys, API tokens, Apple web sessions, or private contact
+  exports. `.asc/`, `.p8`, `build/`, and `artifacts/` are ignored.
+- The owner chose to hide Ask AI for the first release. Its toolbar item is absent
+  and `KeyboardController.run` refuses the action. Keep the internal prompt and
+  benchmark coverage. Do not restore the feature without the owner's request and
+  a separate content-safeguard review. Edit-similarity guards are not content filters.
+- Keep the store release manual. Do not invite other testers or publish a public
+  beta link without a named request. No public App Store release has been approved.

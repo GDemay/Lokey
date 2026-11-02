@@ -1,8 +1,8 @@
 # App Store release preparation
 
-App record **6829549183** has been created. Build **1.0.0 (2)** was uploaded on
-November 1, 2026 and accepted for processing. Tester setup and website metadata
-are still pending. See [current status](../store/STATUS.md).
+App record **6829549183** has been created. Internal TestFlight, English and French
+listings, screenshots, and free pricing are configured. See [current status](../store/STATUS.md)
+and the [CLI workflow](../store/CLI.md) for the current build and checks.
 
 ## Listing
 
@@ -12,7 +12,7 @@ Subtitle: Clearer words. On your iPhone.
 
 Category: Utilities
 
-Keywords: keyboard,grammar,spelling,writing,offline,private,french,azerty,proofread
+Keywords: grammar,spelling,writing,offline,french,azerty,proofread,autocorrect,qwerty,translate
 
 Description:
 
@@ -52,8 +52,14 @@ The only network operation in the app is downloading model data. Model weights
 are data, not downloaded executable code. The app uses llama.cpp under MIT and
 Liquid AI models under the LFM Open License v1.0, linked in the Models screen.
 
-Proposed privacy label: Data Not Collected. Confirm the final binary and model
-provider behavior before submitting the label in App Store Connect.
+Published privacy label: Data Not Collected, approved by the owner on November 2,
+2026. There is no data-collection SDK. The model is fetched with Apple's URLSession;
+the privacy policy separately describes normal connection data seen by its host.
+
+The owner chose to hide free-form Ask AI for the first release. Fix, rewrites,
+and translation remain. The launch build does not offer a content feed, messaging
+between users, or unrestricted web browsing. The age questionnaire describes
+these app features and its bundled material; it does not certify a model safety filter.
 
 ## Submission gates
 
@@ -64,11 +70,12 @@ provider behavior before submitting the label in App Store Connect.
 - Publish the privacy policy and support page at stable public URLs. The policy
   source is `docs/PRIVACY.md`; support is the repository issue tracker. Use URLs
   from the release branch or main only after those files are pushed.
-- App Store signing and upload are complete for build 2. Check processing and
-  TestFlight status on Apple’s website before claiming it is ready for testers.
-- Five checked screenshots are prepared in `artifacts/release/screenshots/`
-  (real iPhone 17 Pro, 1206 × 2622, no transparency). Review their status bars and
-  order before upload. The signed archive is in `build/release/Lokey.xcarchive`.
+- App Store signing and upload are complete for build 3. It is processed and in
+  internal testing. `scripts/app-store.py status` reads the current state from Apple.
+- Six checked screenshots are saved in `store/screenshots/iphone69/`
+  (Release iPhone 18 Pro Max simulator, 1320 × 2868, no transparency). Both locales
+  use the verified, ordered Asset Library placements. The signed archive is in
+  `build/release/Lokey.xcarchive`.
 - Finish a TestFlight pass on an older supported iPhone and in common host apps.
   A simulator does not enforce the keyboard's device memory limit.
 - Review the release evidence in `docs/BENCHMARK.md`. Do not describe the small

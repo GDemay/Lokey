@@ -1,14 +1,14 @@
 # Lokey
 
 **A free, open-source iOS keyboard that fixes English and French with a local LLM.**
-Grammar, spelling and punctuation fixes, tone rewrites, translation and "Ask AI",
+Grammar, spelling and punctuation fixes, tone rewrites, and translation,
 in any app, entirely on the iPhone: no servers, no account, no ads, no subscription.
 It also **corrects each sentence as you type**, which the paid cloud apps in this
 category (e.g. AiText) don't do.
 
 > Status: release candidate. Guided setup, AZERTY, and real keyboard corrections have
-> been tested locally on an iPhone 17 Pro. Build 1.0.0 (2) is uploaded to App Store
-> Connect for processing. Tester setup and store submission remain open.
+> been tested locally on an iPhone 17 Pro. TestFlight is set up for the owner's
+> account. The public App Store release has not been submitted.
 > See [release preparation](docs/APP_STORE.md) for the remaining submission steps.
 
 ## Use Lokey as your keyboard
@@ -147,8 +147,12 @@ Linux (core + llama.cpp integration): `LLAMA_PREFIX=<dir with include/llama.h, l
 
 The **Upload to TestFlight** Codex action builds a Release archive and uploads it
 to the personal App Store Connect account. The Mac must be unlocked and Xcode
-signed in. It uses Apple’s build-number management for later uploads. See
-[store/STATUS.md](store/STATUS.md) for the first upload and remaining setup.
+signed in for development signing. Store signing and upload use the local signing
+key and the `lokey` API profile. Increment the build in `project.yml` and
+`store/app.json` before another upload. See
+[store/STATUS.md](store/STATUS.md) for the current build and remaining setup.
+Store metadata and TestFlight notes use the `lokey` API profile in this Mac's
+Keychain. See [store/CLI.md](store/CLI.md) for the repeatable agent workflow.
 
 ## Privacy
 

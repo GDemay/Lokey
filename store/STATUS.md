@@ -1,42 +1,73 @@
-# Release status — November 1, 2026
+# Release status — November 2, 2026
 
-## Done
+## Ready
 
-- Created the personal App Store Connect app record: **Lokey: Private AI Keyboard**,
-  Apple ID **6829549183**, bundle `com.gdemay.lokey`, SKU `lokey-ios`, English (US).
-- Uploaded **1.0.0 (2)** to App Store Connect at 23:23 CET. Apple's upload service
-  accepted it and reported that the package is processing. Processing completion
-  and TestFlight availability have not yet been checked.
-- Fixed Apple's first validation error. XcodeGen's target defaults overrode the
-  project-level iPhone setting and produced `UIDeviceFamily = [1, 2]`. Both shipping
-  targets now explicitly use `[1]`. The upload script checks the archived plists.
-- Exported and retained the exact uploaded App Store package at
-  `artifacts/release/Lokey-1.0.0-AppStore.ipa`. Its SHA-256 is
-  `82d9140f551f621ff3c88c0bdd7bbc5faf10ad5ac3417f70786dcb5337d327e2`.
-- Prepared English and French store text and beta test notes, checked text lengths,
-  and retained five real iPhone screenshots. These listing fields and images have
-  not yet been saved on Apple's website.
-- Checked that the policy and support URLs are publicly accessible.
-- Added the Codex **Upload to TestFlight** action for later builds.
+- Personal Apple app **6829549183**, **Lokey: Private AI Keyboard**,
+  bundle `com.gdemay.lokey`, team `GB87Z9SKC5`.
+- **1.0.0 (3)** is processed (`VALID`) and in internal beta testing. Build ID:
+  `9bfd65c8-b142-4e69-8027-9846f05bc8f9`.
+- The private **Lokey Internal** group has automatic distribution enabled.
+  Only Guillaume is invited. The invitation is **Invited**; the owner must accept
+  it on the iPhone. No public beta link or other tester invitation was created.
+- Build 3 is selected for App Store version **1.0.0**, ID
+  `879ee21a-6a7c-43d8-9fb9-be1350307b60`. Release is **manual**.
+- English and French listings, test notes, beta descriptions, review notes, and
+  private review contacts are saved. No demo login is required.
+- Utilities / Productivity categories, free pricing, availability, content rights,
+  and the age questionnaire are complete for the keyboard tools and bundled
+  material. The app has no social feed, messaging service, ads, unrestricted
+  browser, or bundled mature material.
+- The owner chose to hide **Ask AI**. Build 3 removes its toolbar item and blocks
+  that action. Fix, rewrites, and translation remain.
+- Six 1320 × 2868 screenshots are tracked under `screenshots/iphone69/`. All six
+  placements are ACTIVE, in the correct order, in both locales. Old medium-size
+  placements and empty sets were removed; their media remains in the library.
+- The owner approved Apple's October 29, 2026 agreement and the **Data Not Collected**
+  declaration. The agreement is accepted and privacy answers are published.
+  Free Apps and EU Digital Services Act status are Active. Paid Apps was not needed.
+- The final CLI App Store check has **0 errors and 0 warnings**. Its two info notes
+  are manual release and privacy publication being unavailable through the public
+  API. Privacy publication was checked on Apple's website.
 
-## Next
+## Repeatable CLI workflow
 
-The Mac locked during setup. App Store Connect in the in-app browser also needs
-sign-in. The user has been asked to unlock the Mac and sign in; no password or code
-was requested in chat.
+Read [CLI.md](CLI.md). `asc` 6.3.0 is installed. The `lokey` App Manager key and
+local Apple Distribution identity are in this Mac's Keychain. Plain key files
+were removed after successful use. No other certificate or key was revoked.
+The distribution certificate expires November 2, 2027.
 
-After access returns:
+Cloud signing was denied for the App Manager key. The working upload uses the
+local certificate and two App Store profiles. It sends the build and symbols
+through Xcode's command line with API credentials. The exact uploaded IPA is
+`build/release/app-store/Lokey.ipa`; the archive and dSYMs are in
+`build/release/Lokey.xcarchive`. Copies and a receipt are under `artifacts/release/`.
 
-1. Open [Lokey in App Store Connect](https://appstoreconnect.apple.com/apps/6829549183).
-2. Check build 1.0.0 (2) processing, export compliance, and TestFlight status.
-3. Finish the internal tester setup for Guillaume. Do not invite other people
-   without a named tester request. Add the prepared What to Test notes.
-4. Save `app.json` and both localized listings on the website. Upload the screenshots.
-5. Complete the privacy, age rating, availability, contact, and account declarations
-   from the actual forms. Do not infer personal or legal answers from a draft.
-6. Select the build for the App Store version and check Apple's readiness checks.
+Apple's old screenshot endpoint timed out during checksum settlement and returned
+server errors. The working path uses Asset Library media named by file hash,
+explicit placements, and read-back checks. Do not repeat the old upload path or
+upload build 3 again just to check its status.
 
-The public App Store release has not been submitted. TestFlight tester setup and
-store metadata remain unfinished. The successful upload receipt is in
-`artifacts/release/upload-receipt.json`; the full upload log is
-`build/release/upload.log`. Do not upload build 2 again just to check its status.
+## Checks
+
+Four Release UI tests passed on the iPhone 18 Pro Max simulator, iOS 27:
+
+1. Guided setup resumes and finishes.
+2. The real keyboard has no Ask AI item, retains Enhance and Translate, and fixes
+   `I has 2 kid` to `I have 2 kids.`
+3. AZERTY and long-press accents work.
+4. `Je cai pas écrit francai` becomes
+   `Je ne sais pas comment écrire en français.` and is applied to the host field.
+
+The tested Release app is also installed in **Lokey Local**. The physical iPhone
+was not relaunched. Earlier device checks are in `docs/BENCHMARK.md`; the inference
+engine and prompts did not change for build 3.
+
+Local metadata validation passes. Repeating the metadata plan gives no changes.
+Reports are under ignored `build/store/`. Browser proof is under
+`artifacts/release/apple-setup/`.
+
+## Public release
+
+The app has **not** been submitted for public App Review or released on the App
+Store. Preparation checks do not replace Apple's review. A longer TestFlight pass
+on older supported iPhones and common host apps is still recommended before release.

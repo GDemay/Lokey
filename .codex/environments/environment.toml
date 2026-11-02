@@ -23,3 +23,13 @@ command = "./\"Run on iPhone.command\""
 name = "Upload to TestFlight"
 icon = "run"
 command = "./scripts/upload-testflight.sh"
+
+[[actions]]
+name = "TestFlight status"
+icon = "debug"
+command = "python3 scripts/app-store.py status"
+
+[[actions]]
+name = "App Store checks"
+icon = "debug"
+command = "python3 scripts/app-store.py ready"

@@ -92,7 +92,6 @@ struct ToolbarView: View {
                 } else {
                     chip("Enhance", symbol: "wand.and.stars", id: "kb.enhance") { controller.panel = .enhance }
                     chip("Translate", symbol: "globe", id: "kb.translate") { controller.panel = .translate }
-                    chip(WritingAction.ask.title, symbol: WritingAction.ask.symbol, id: "kb.ask") { controller.run(.ask) }
                     Spacer(minLength: 0)
                 }
                 if controller.canUndo {

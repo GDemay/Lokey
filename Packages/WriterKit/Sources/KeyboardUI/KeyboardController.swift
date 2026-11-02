@@ -333,12 +333,16 @@ public final class KeyboardController: ObservableObject {
     }
 
     public func run(_ action: WritingAction) {
+        guard action.id != WritingAction.ask.id else {
+            phase = .message("This action is not available.")
+            return
+        }
         liveTask?.cancel()
         liveNotice = nil
         panel = .keys
         let target = currentTarget()
         guard !target.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            phase = .message(action.group == .ask ? "Type what you want to write, then tap Ask AI." : "Type something first.")
+            phase = .message("Type something first.")
             return
         }
         phase = .working(action: action, partial: "")

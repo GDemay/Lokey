@@ -1,0 +1,15 @@
+{
+  "profile": "lokey",
+  "cli": "asc",
+  "tested_cli_version": "6.3.0",
+  "internal_group_id": "e89c78cb-9f0e-45d7-b7dc-895f433d07c2",
+  "signing": {
+    "certificate_sha1": "9D758A1B25EAE66FBA2B2F7E2648151121DC5949",
+    "certificate_id": "8YTDQ34BXF",
+    "expires": "2027-11-02",
+    "profiles": {
+      "com.gdemay.lokey": "Lokey CLI App Store",
+      "com.gdemay.lokey.keyboard": "Lokey Keyboard CLI App Store"
+    }
+  }
+}
