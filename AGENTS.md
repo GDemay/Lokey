@@ -309,9 +309,13 @@ and makes the portrait-only app fail iPad multitasking validation.
 
 ## 10. Store automation and first release
 
-- Read `store/STATUS.md` and `store/CLI.md` before store work. Use `asc --profile lokey`
+- Read `store/STATUS.md` and `store/CLI.md` before store work. On this Mac use `asc --profile lokey`
   and app ID `6829549183`. The API key is saved in this Mac's Keychain; do not create
   another key or app record just because a new chat has no credentials in its text.
+- The shared `apple-release` skill lives in the private `GDemay/apple-release-tools`
+  repo. It supports other apps and cloud agents. This repo's `.apple-release.json`
+  selects Lokey. In the cloud, inject the credential files described by the skill;
+  this Mac's Keychain is not available there. Keep Lokey's store text and helpers here.
 - `store/AGENT_BRIEF.md` is the short handoff for a new agent. Start with live,
   read-only checks; a past status file is not proof of Apple's current state.
 - Use `python3 scripts/app-store.py` for status, listing checks, dry runs, listing
