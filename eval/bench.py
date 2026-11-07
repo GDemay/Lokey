@@ -33,7 +33,7 @@ def load_prompts(path):
 
 def correction_language(text):
     tokens = set(words(text))
-    french = set("je jai jétais tu il elle nous vous ils elles les des une dans pour avec comme pas est suis sont bonjour merci français francais ça cest sest était demain hier peux peut veux".split())
+    french = set("je jai jétais tu il elle nous vous ils elles les des une dans pour avec comme pas est suis sont bonjour merci français francais ça cest sest était demain hier peux peut veux mdr".split())
     english = set("i im you he she we they the this that is are have has dont doesnt will would what how please thanks your my its their".split())
     fr_score = len(tokens & french) * 3 + len(tokens & set("le la de du se ne au".split()))
     en_score = len(tokens & english) * 3
@@ -97,6 +97,20 @@ FRENCH_NEGATION = re.compile(
     r"\A(je|tu|il|elle|on|nous|vous|ils|elles)([ \t]+)(ne[ \t]+|n['’])?[^\W\d_]+[ \t]+pas\b",
     re.IGNORECASE,
 )
+REACTION_PREFIX = re.compile(r"\A(omg|lol|mdr|tbh),?[ \t]+(?=\S)", re.IGNORECASE)
+
+
+def preserve_reaction(source, output):
+    original = REACTION_PREFIX.match(source)
+    if not original:
+        return output
+    edited = REACTION_PREFIX.match(output)
+    word = original[1].lower()
+    if edited and edited[1].lower() == word:
+        return original[0] + output[edited.end():]
+    if similarity(source[original.end():], output) >= 0.75 and word not in words(output):
+        return original[0] + output
+    return output
 
 
 def preserve_apostrophes(source, output):
@@ -132,7 +146,7 @@ def preserve_fix_style(source, output):
         if not edit[3][-1].isspace():
             return source
         output = original[1] + edit[2] + output[edit.end(3):]
-    return preserve_apostrophes(source, output)
+    return preserve_apostrophes(source, preserve_reaction(source, output))
 
 
 def osa_distance(a, b):
@@ -222,7 +236,9 @@ def guard(prompts, action, source, output):
     if not g["allowNewLines"] and output.count("\n") > source.count("\n"):
         return False, "newlines"
     if g["rejectAssistantOpeners"]:
-        o, s = output.strip().lower().replace("’", "'"), source.strip().lower().replace("’", "'")
+        output_body = REACTION_PREFIX.sub("", output, count=1)
+        source_body = REACTION_PREFIX.sub("", source, count=1)
+        o, s = (text.strip().lower().replace("’", "'") for text in (output_body, source_body))
         for opener in prompts.get("assistantOpeners", []):
             if o.startswith(opener) and not s.startswith(opener):
                 return False, "opener"

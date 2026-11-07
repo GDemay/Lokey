@@ -1,6 +1,10 @@
 import Foundation
 
 enum CasualWording {
+    private static let reactionPrefix = try! NSRegularExpression(
+        pattern: #"\A(omg|lol|mdr|tbh),?[ \t]+(?=\S)"#,
+        options: .caseInsensitive
+    )
     private static let expansions = [
         "going to": "gonna",
         "want to": "wanna",
@@ -24,6 +28,30 @@ enum CasualWording {
         "but", "can", "can't", "could", "he", "how", "if", "see", "she", "thanks", "that", "they",
         "we", "what", "when", "where", "you", "allez", "bon", "j", "je", "mais", "on", "t", "tu",
     ])
+
+    // Keep a standalone chat reaction when the model only edits the rest of the message.
+    static func preserveReaction(in output: String, from source: String) -> String {
+        guard let original = reaction(in: source) else { return output }
+        if let edited = reaction(in: output), edited.word == original.word {
+            return String(source[original.range] + output[edited.range.upperBound...])
+        }
+        let body = String(source[original.range.upperBound...])
+        guard Similarity.ratio(body, output) >= 0.75,
+              !Similarity.words(output).contains(original.word) else { return output }
+        return String(source[original.range] + output)
+    }
+
+    static func afterReaction(in text: String) -> Substring {
+        guard let reaction = reaction(in: text) else { return text[...] }
+        return text[reaction.range.upperBound...]
+    }
+
+    private static func reaction(in text: String) -> (range: Range<String.Index>, word: String)? {
+        guard let match = reactionPrefix.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let range = Range(match.range, in: text), let word = Range(match.range(at: 1), in: text)
+        else { return nil }
+        return (range, text[word].lowercased())
+    }
 
     static func preserve(in output: String, from source: String) -> String {
         let text = preservePhrases(in: output, from: source)

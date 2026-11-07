@@ -27,6 +27,7 @@ final class KeyboardLayoutTests: XCTestCase {
         XCTAssertEqual(CorrectionLanguage.detect(in: "I have two kids and I live in France."), .english)
         XCTAssertEqual(CorrectionLanguage.detect(in: "On Sunday I go to the café."), .english)
         XCTAssertEqual(library.resolvedAction("fix", text: "Je veux écrire"), "fix_french")
+        XCTAssertEqual(library.resolvedAction("fix", text: "mdr t'as recu le colis"), "fix_french")
         XCTAssertEqual(library.resolvedAction("fix", text: "I has 2 kid"), "fix")
         XCTAssertEqual(library.resolvedAction("professional", text: "Je veux écrire"), "professional")
         let guarder = try OutputGuard(library: library, action: "fix", text: "il a oublier les cle")

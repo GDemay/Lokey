@@ -137,7 +137,8 @@ final class LlamaRuntimeTests: XCTestCase {
         let result = try await assistant.run(actionID: "fix", text: "Je cai pas écrit francai")
         XCTAssertGreaterThan(result.stats.cachedTokens, 0)
         XCTAssertEqual(result.rejectedChunks, 0)
-        XCTAssertTrue(result.output.contains("écrire"), result.output)
+        XCTAssertTrue(["Je sais pas écrire français", "Je sais pas comment écrire en français"]
+            .contains(result.output), result.output)
     }
 
     func testCancellationStopsGeneration() async throws {

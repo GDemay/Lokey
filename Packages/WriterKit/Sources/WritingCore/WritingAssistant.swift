@@ -73,8 +73,9 @@ public final class WritingAssistant: @unchecked Sendable {
                 stats = stats + s
                 let endingPreserved = TextChunker.preserveEnding(of: chunk.body, in: generated)
                 let registerPreserved = Self.preserveFrenchRegister(of: chunk.body, in: endingPreserved)
+                let reactionPreserved = CasualWording.preserveReaction(in: registerPreserved, from: chunk.body)
                 let wordingPreserved = preserveCasualWording
-                    ? CasualWording.preserve(in: registerPreserved, from: chunk.body) : registerPreserved
+                    ? CasualWording.preserve(in: reactionPreserved, from: chunk.body) : reactionPreserved
                 let out = TextDiff.preservingApostrophes(from: chunk.body, in: wordingPreserved)
                 let outputGuard = try OutputGuard(library: library, action: actionID, text: chunk.body)
                 if outputGuard.evaluate(source: chunk.body, output: out).isAccepted {

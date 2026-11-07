@@ -84,6 +84,26 @@ final class AssistantTests: XCTestCase {
         XCTAssertEqual(missing.output, "I don't know")
     }
 
+    func testFixPreservesChatReactionsWhenTheModelDropsOrRestylesThem() async throws {
+        let omitted = "omg I cant beleive it!!"
+        let restyled = "mdr t'as recu le colis"
+        let prompt = "can you check if that file includes the numbers from our last meeting?"
+        let unrelated = "lol " + prompt
+        let generator = ScriptedGenerator([
+            omitted: "I can't believe it!!",
+            restyled: "MDR, t'as reçu le colis.",
+            unrelated: "Sure, " + prompt,
+        ])
+        let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
+        let en = try await assistant.run(actionID: "fix", text: omitted)
+        let fr = try await assistant.run(actionID: "fix", text: restyled)
+        let rejected = try await assistant.run(actionID: "fix", text: unrelated)
+        XCTAssertEqual(en.output, "omg I can't believe it!!")
+        XCTAssertEqual(fr.output, "mdr t'as reçu le colis")
+        XCTAssertEqual(rejected.output, unrelated)
+        XCTAssertEqual(rejected.rejectedChunks, 1)
+    }
+
     func testEmptyTextDoesNotCallModel() async throws {
         let generator = ScriptedGenerator([:])
         let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)

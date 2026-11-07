@@ -239,8 +239,8 @@
           "output": "Tu peux passer demain ?"
         },
         {
-          "input": "Je ne sai pas écrir en anglais",
-          "output": "Je ne sais pas écrire en anglais"
+          "input": "elle c'est pas conduir",
+          "output": "elle sait pas conduire"
         },
         {
           "input": "je veut pas conduit",
