@@ -294,9 +294,16 @@ final class LokeyUITests: XCTestCase {
         XCTAssertTrue(proposal.isHittable)
         XCTAssertEqual(editor.value as? String, "Je peut pas venir demain")
         screenshot("french-correction-suggestion")
-        key("kb.apply").tap()
-        let output = try XCTUnwrap(editor.value as? String)
-        XCTAssertEqual(output, "Je peux pas venir demain")
+        let apply = key("kb.apply")
+        XCTAssertTrue(apply.isHittable)
+        apply.tap()
+        let applied = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Je peux pas venir demain"), object: editor
+        )
+        let state = XCTWaiter.wait(for: [applied], timeout: 5)
+        let message = key("kb.message")
+        XCTAssertEqual(state, .completed,
+                       "Editor: \(editor.value ?? "nil"); Apply visible: \(apply.exists); keyboard message: \(message.exists ? message.label : "none")")
         XCTAssertTrue(element("setup.verified").waitForExistence(timeout: 5))
         screenshot("french-correction-applied")
     }

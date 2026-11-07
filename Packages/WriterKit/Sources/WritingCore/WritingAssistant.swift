@@ -116,15 +116,16 @@ public final class WritingAssistant: @unchecked Sendable {
 
     private static func preserveFrenchRegister(of source: String, in output: String) -> String {
         guard let original = frenchNegation.firstMatch(in: source, range: NSRange(source.startIndex..., in: source)),
-              original.range(at: 3).location == NSNotFound,
               let edit = frenchNegation.firstMatch(in: output, range: NSRange(output.startIndex..., in: output)),
               let subject = Range(original.range(at: 1), in: source),
               let editedSubject = Range(edit.range(at: 1), in: output),
-              source[subject].lowercased() == output[editedSubject].lowercased(),
-              let addedNe = Range(edit.range(at: 3), in: output) else { return output }
-        // Removing an elided negation can require changing the subject or guessing the intended verb.
-        guard output[addedNe].last?.isWhitespace == true else { return source }
-        return String(source[subject] + output[editedSubject.upperBound..<addedNe.lowerBound] + output[addedNe.upperBound...])
+              source[subject].lowercased() == output[editedSubject].lowercased() else { return output }
+        if original.range(at: 3).location == NSNotFound, let addedNe = Range(edit.range(at: 3), in: output) {
+            // Removing an elided negation can require changing the subject or guessing the intended verb.
+            guard output[addedNe].last?.isWhitespace == true else { return source }
+            return String(source[subject] + output[editedSubject.upperBound..<addedNe.lowerBound] + output[addedNe.upperBound...])
+        }
+        return String(source[subject] + output[editedSubject.upperBound...])
     }
 
     private func generate(actionID: String, text: String, budgetFactor: Double, extra: Int,

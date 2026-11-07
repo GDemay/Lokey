@@ -141,11 +141,13 @@ def preserve_apostrophes(source, output):
 def preserve_fix_style(source, output):
     output = preserve_ending(source, output)
     original, edit = FRENCH_NEGATION.match(source), FRENCH_NEGATION.match(output)
-    if (original and edit and not original[3] and edit[3]
-            and original[1].lower() == edit[1].lower()):
-        if not edit[3][-1].isspace():
-            return source
-        output = original[1] + edit[2] + output[edit.end(3):]
+    if original and edit and original[1].lower() == edit[1].lower():
+        if not original[3] and edit[3]:
+            if not edit[3][-1].isspace():
+                return source
+            output = original[1] + edit[2] + output[edit.end(3):]
+        else:
+            output = original[1] + output[edit.end(1):]
     return preserve_apostrophes(source, preserve_reaction(source, output))
 
 

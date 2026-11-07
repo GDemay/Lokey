@@ -47,6 +47,7 @@ final class AssistantTests: XCTestCase {
     func testFixKeepsTheOriginalEnding() async throws {
         let generator = ScriptedGenerator([
             "Je peut pas venir": "je ne peux pas venir.",
+            "Je peut pas venir demain": "je peux pas venir demain.",
             "Je ne peut pas venir": "Je ne peux pas venir.",
             "Je cai pas écrit francai": "Je n'ai pas écrit en français.",
             "tu peut venir ?!": "tu peux venir?",
@@ -54,11 +55,13 @@ final class AssistantTests: XCTestCase {
         ])
         let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
         let plain = try await assistant.run(actionID: "fix", text: "Je peut pas venir")
+        let lowercase = try await assistant.run(actionID: "fix", text: "Je peut pas venir demain")
         let formal = try await assistant.run(actionID: "fix", text: "Je ne peut pas venir")
         let ambiguous = try await assistant.run(actionID: "fix", text: "Je cai pas écrit francai")
         let question = try await assistant.run(actionID: "fix", text: "tu peut venir ?!")
         let alreadyCorrect = try await assistant.run(actionID: "fix", text: "on se voit demain")
         XCTAssertEqual(plain.output, "Je peux pas venir")
+        XCTAssertEqual(lowercase.output, "Je peux pas venir demain")
         XCTAssertEqual(formal.output, "Je ne peux pas venir")
         XCTAssertFalse(ambiguous.hasChanges)
         XCTAssertEqual(question.output, "tu peux venir ?!")

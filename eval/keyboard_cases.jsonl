@@ -82,6 +82,7 @@
 {"id":"minimal-fr-01","cat":"informal","input":"je peut pas venir demain","accept":["je peux pas venir demain","Je peux pas venir demain"]}
 {"id":"minimal-fr-02","cat":"already_correct","input":"bah je pense que ça va pas le faire","accept":["bah je pense que ça va pas le faire"]}
 {"id":"minimal-fr-03","cat":"grammar","input":"on s'est tromper de train","accept":["on s'est trompé de train","On s'est trompé de train"]}
+{"id":"minimal-fr-04","cat":"informal","input":"Je peut pas venir demain","accept":["Je peux pas venir demain"]}
 {"id":"minimal-en-01","cat":"informal","input":"I dont think it's gonna work","accept":["I don't think it's gonna work"]}
 {"id":"minimal-en-02","cat":"informal","input":"i dont know how to write it anymore but you got it","accept":["I don't know how to write it anymore but you got it"]}
 {"id":"minimal-apostrophes-01","cat":"already_correct","input":"Je te l’annonce, j’ai le temps","accept":["Je te l’annonce, j’ai le temps"]}
