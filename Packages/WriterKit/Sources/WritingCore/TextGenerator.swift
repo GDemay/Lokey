@@ -34,6 +34,8 @@ public struct GenerationOutput: Sendable {
 }
 
 public enum GeneratorError: Error, Equatable, LocalizedError {
+    case appleFixDeclined
+    case noKeyboardModel
     case modelNotFound(String)
     case loadFailed(String)
     case contextFailed
@@ -44,6 +46,8 @@ public enum GeneratorError: Error, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
+        case .appleFixDeclined: return "Apple Intelligence couldn’t complete Fix for this text."
+        case .noKeyboardModel: return "No model yet. Open the \(Brand.name) app to download one (needs Full Access for the keyboard to read it)."
         case .modelNotFound(let path): return "Model file not found at \(path)."
         case .loadFailed(let path): return "Could not load the model at \(path)."
         case .contextFailed: return "Could not create an inference context (not enough memory?)."
@@ -59,6 +63,7 @@ public enum GeneratorError: Error, Equatable, LocalizedError {
 public protocol TextGenerator: AnyObject, Sendable {
     /// Key into `PromptLibrary.formats`.
     var format: String { get }
+    func renderPrompt(library: PromptLibrary, actionID: String, text: String) throws -> RenderedPrompt
     /// Generates greedily until a stop string, end of generation, or `maxTokens`.
     /// `onPartial` receives the text generated so far.
     func generate(_ prompt: RenderedPrompt, maxTokens: Int,
@@ -70,6 +75,10 @@ public protocol TextGenerator: AnyObject, Sendable {
 }
 
 public extension TextGenerator {
+    func renderPrompt(library: PromptLibrary, actionID: String, text: String) throws -> RenderedPrompt {
+        try library.render(action: actionID, text: text, format: format)
+    }
+
     func prewarm(prefix: String) async throws {}
     func tokenCount(_ text: String) -> Int { max(1, text.utf8.count / 3) }
 }

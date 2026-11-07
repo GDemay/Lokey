@@ -19,6 +19,8 @@ public enum AutocorrectMode: String, Codable, CaseIterable, Sendable {
 
 public struct AppSettings: Codable, Equatable, Sendable {
     public var selectedModelID: String?
+    public var useAppleIntelligenceForFix = false
+    public var saveCorrectionHistory = false
     public var keyboardLayout: KeyboardLayout = .automatic
     public var autocorrectMode: AutocorrectMode = .automatic
     /// Fixes that change more than this (1 - similarity) are offered as suggestions even in automatic mode.
@@ -40,6 +42,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = AppSettings.Defaults()
         selectedModelID = try c.decodeIfPresent(String.self, forKey: .selectedModelID)
+        useAppleIntelligenceForFix = try c.decodeIfPresent(Bool.self, forKey: .useAppleIntelligenceForFix) ?? false
+        saveCorrectionHistory = try c.decodeIfPresent(Bool.self, forKey: .saveCorrectionHistory) ?? false
         keyboardLayout = try c.decodeIfPresent(KeyboardLayout.self, forKey: .keyboardLayout) ?? .automatic
         autocorrectMode = try c.decodeIfPresent(AutocorrectMode.self, forKey: .autocorrectMode) ?? d.autocorrectMode
         automaticMaxChange = try c.decodeIfPresent(Double.self, forKey: .automaticMaxChange) ?? d.automaticMaxChange
@@ -74,6 +78,7 @@ public struct KeyboardStatus: Codable, Equatable, Sendable {
     public var modelName: String?
     public var modelID: String?
     public var checkID: String?
+    public var appleFixReady: Bool?
     public var footprintMB: Double?
     /// The extension's highest footprint so far; this is what must stay under the memory limit.
     public var peakFootprintMB: Double?

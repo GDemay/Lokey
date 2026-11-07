@@ -33,9 +33,8 @@ public enum AssistantFactory {
                             catalog: ModelCatalog, store: ModelStore,
                             library: PromptLibrary, bundle: Bundle = .main) throws -> (WritingAssistant, ModelInfo) {
         guard var selection = selection(settings: settings, catalog: catalog, store: store, bundle: bundle) else {
-            throw GeneratorError.unavailable(context == .keyboard
-                ? "No model yet. Open the \(Brand.name) app to download one (needs Full Access for the keyboard to read it)."
-                : "No model downloaded yet. Download one in Models.")
+            if context == .keyboard { throw GeneratorError.noKeyboardModel }
+            throw GeneratorError.unavailable("No model downloaded yet. Download one in Models.")
         }
         if context == .keyboard, let available = MemoryBudget.availableBytes() {
             let margin: UInt64 = 10 << 20

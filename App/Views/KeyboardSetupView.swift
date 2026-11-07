@@ -1,3 +1,4 @@
+import AppleRuntime
 import SwiftUI
 import WritingCore
 
@@ -6,6 +7,9 @@ struct KeyboardSetupView: View {
 
     private var wasChecked: Bool {
         guard let status = model.keyboardStatus else { return false }
+        if model.settings.useAppleIntelligenceForFix {
+            return status.hasFullAccess && status.appleFixReady == true && AppleFix.unavailableReason == nil
+        }
         return status.modelID != nil && status.modelID == model.activeModel?.id
     }
 
@@ -35,9 +39,16 @@ struct KeyboardSetupView: View {
 
                 VStack(spacing: 0) {
                     NavigationLink { ModelsView() } label: {
-                        homeRow(symbol: "cpu", title: "AI model", detail: model.activeModel?.name ?? "Download for offline corrections")
+                        homeRow(symbol: "cpu", title: "AI model",
+                                detail: model.settings.useAppleIntelligenceForFix ? "Apple Intelligence for Fix"
+                                    : model.activeModel?.name ?? "Download for offline corrections")
                     }
                     .accessibilityIdentifier("setup.models")
+                    Divider().padding(.vertical, 16)
+                    NavigationLink { CorrectionHistoryView() } label: {
+                        homeRow(symbol: "book", title: "Correction history", detail: "Learn from your corrections")
+                    }
+                    .accessibilityIdentifier("setup.learn")
                     Divider().padding(.vertical, 16)
                     NavigationLink { SettingsView() } label: {
                         homeRow(symbol: "slider.horizontal.3", title: "Make it yours", detail: "Corrections, sound, and feel")
@@ -50,7 +61,7 @@ struct KeyboardSetupView: View {
                 }
                 .buttonStyle(.plain)
                 .setupCard()
-                if model.activeModel != nil {
+                if model.activeModel != nil || model.settings.useAppleIntelligenceForFix && AppleFix.unavailableReason == nil {
                     Label("Model ready · works offline", systemImage: "checkmark.shield")
                         .font(.footnote).foregroundStyle(.secondary)
                         .accessibilityIdentifier("setup.modelReady")
@@ -89,7 +100,12 @@ struct KeyboardCheckView: View {
     @FocusState private var focused: Bool
 
     private var verified: Bool {
-        model.keyboardStatus?.verifies(checkID: checkID, modelID: model.activeModel?.id) == true
+        if model.settings.useAppleIntelligenceForFix {
+            guard let status = model.keyboardStatus else { return false }
+            return status.checkID == checkID && status.hasFullAccess && status.appleFixReady == true
+                && AppleFix.unavailableReason == nil
+        }
+        return model.keyboardStatus?.verifies(checkID: checkID, modelID: model.activeModel?.id) == true
     }
 
     var body: some View {
@@ -117,7 +133,7 @@ struct KeyboardCheckView: View {
                 } else {
                     Text("No confirmation yet? Choose Lokey and tap a key. Allow Full Access in Settings if you want this app to check its status. You can still type without it.")
                         .font(.footnote).foregroundStyle(.secondary)
-                    if model.activeModel == nil {
+                    if model.activeModel == nil && !model.settings.useAppleIntelligenceForFix {
                         Text("Download an AI model from the home screen to use Fix.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
@@ -151,7 +167,7 @@ struct KeyboardCheckView: View {
             checkID = model.beginKeyboardCheck()
             focused = true
             while !Task.isCancelled {
-                model.refresh()
+                model.refreshKeyboardStatus()
                 try? await Task.sleep(for: .milliseconds(700))
             }
         }

@@ -3,11 +3,23 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+install_only=false
+if [[ "${1:-}" == "--install-only" ]]; then
+  install_only=true
+  shift
+fi
+if [[ $# -ne 0 ]]; then
+  echo "Usage: $0 [--install-only]" >&2
+  exit 2
+fi
+
 for tool in xcodegen cmake python3; do
   command -v "$tool" >/dev/null || { echo "Install $tool before running Lokey." >&2; exit 1; }
 done
 scripts/bootstrap.sh
-scripts/fetch-model.sh lfm2.5-1.2b-instruct-q4
+if [[ "$install_only" == false ]]; then
+  scripts/fetch-model.sh lfm2.5-1.2b-instruct-q4
+fi
 xcodegen generate
 
 derived="$PWD/build/device"
@@ -22,21 +34,31 @@ with open(sys.argv[1]) as f:
                and d.get("hardwareProperties", {}).get("deviceType") == "iPhone"
                and d.get("hardwareProperties", {}).get("reality") == "physical"]
 if len(devices) != 1:
-    sys.exit("Connect and unlock one iPhone, or set LOKEY_DEVICE_ID to choose one.")
+    sys.exit("Connect one paired iPhone, or set LOKEY_DEVICE_ID to choose one.")
 print(devices[0]["identifier"])
 PY
 )"
 fi
 team="${LOKEY_DEVELOPMENT_TEAM:-GB87Z9SKC5}"
-echo "Building a Release build for your iPhone. This will restart Lokey."
+destination="id=$LOKEY_DEVICE_ID"
+if [[ "$install_only" == true ]]; then
+  # Build without preparing a live run destination, which can require an unlock.
+  destination="generic/platform=iOS"
+fi
+echo "Building a Release build for your iPhone."
 if ! xcodebuild build -project Lokey.xcodeproj -scheme Lokey -configuration Release \
-  -destination "id=$LOKEY_DEVICE_ID" -derivedDataPath "$derived" \
+  -destination "$destination" -derivedDataPath "$derived" \
   -allowProvisioningUpdates -allowProvisioningDeviceRegistration DEVELOPMENT_TEAM="$team" \
   > "$derived/build.log" 2>&1; then
   tail -n 60 "$derived/build.log"
   exit 1
 fi
 xcrun devicectl device install app --device "$LOKEY_DEVICE_ID" "$derived/Build/Products/Release-iphoneos/Lokey.app"
+if [[ "$install_only" == true ]]; then
+  echo "Lokey is installed. Open it on your iPhone when you're ready."
+  exit 0
+fi
+
 seed="$(mktemp -d "${TMPDIR:-/tmp}/lokey-device.XXXXXX")"
 trap 'rm -rf "$seed"' EXIT
 mkdir "$seed/Models"

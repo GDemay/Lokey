@@ -29,7 +29,30 @@ final class LlamaRuntimeTests: XCTestCase {
         let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
         let result = try await assistant.run(actionID: "fix", text: "i dont know what to do")
         print("METRIC fix_output=\(result.output.debugDescription) seconds=\(result.stats.totalSeconds)")
-        XCTAssertTrue(result.output.hasPrefix("I don't know what to do"), result.output)
+        XCTAssertEqual(result.output, "I don't know what to do")
+    }
+
+    func testFixesMissingApostropheInCasualMessage() async throws {
+        let generator = try LlamaGenerator(modelPath: try modelPath(), format: format, configuration: .keyboard)
+        let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
+        let result = try await assistant.run(actionID: "fix", text: "i dont know how to write it anymore but you got it")
+        XCTAssertEqual(result.output, "I don't know how to write it anymore but you got it")
+        XCTAssertEqual(result.rejectedChunks, 0)
+    }
+
+    func testTranslatesFrenchMessagesIntoEnglish() async throws {
+        let generator = try LlamaGenerator(modelPath: try modelPath(), format: format, configuration: .keyboard)
+        let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
+        for (input, expected) in [
+            ("Tu peut venir demain", [["come", "tomorrow"]]),
+            ("Je suis dans le train. J'arrive dans dix minutes.", [["train", "ten minutes"], ["train", "10 minutes"]]),
+            ("De rien, à demain !", [["welcome", "tomorrow"], ["that's okay", "tomorrow"]]),
+        ] {
+            let result = try await assistant.run(actionID: "to_english", text: input)
+            let output = result.output.lowercased().replacingOccurrences(of: "’", with: "'")
+            XCTAssertEqual(result.rejectedChunks, 0, input)
+            XCTAssertTrue(expected.contains { $0.allSatisfy { output.contains($0) } }, result.output)
+        }
     }
 
     func testFixesShortSubjectVerbAndPluralErrors() async throws {
@@ -44,7 +67,7 @@ final class LlamaRuntimeTests: XCTestCase {
         XCTAssertTrue(["I have 2 kids.", "I have two kids.", "I have 2 kids", "I have two kids"].contains(output), output)
         let assistant = WritingAssistant(library: library, generator: generator)
         let result = try await assistant.run(actionID: "fix", text: input)
-        XCTAssertEqual(result.output, output)
+        XCTAssertEqual(result.output, TextChunker.preserveEnding(of: input, in: output))
         XCTAssertEqual(result.rejectedChunks, 0)
     }
 
@@ -52,22 +75,23 @@ final class LlamaRuntimeTests: XCTestCase {
     func testFrenchCorrections() async throws {
         let generator = try LlamaGenerator(modelPath: try modelPath(), format: format, configuration: .keyboard)
         let library = try PromptLibrary.bundled()
+        let assistant = WritingAssistant(library: library, generator: generator)
         let cases = [
-            ("Je cai pas écrit francai", ["Je ne sais pas écrire français.", "Je ne sais pas comment écrire en français."]),
-            ("il a oublier les cle a la maison", ["Il a oublié les clés à la maison."]),
-            ("tu peut venir demain", ["Tu peux venir demain.", "Tu peux venir demain ?", "Tu peux venir demain ?"]),
-            ("je suis aller au marcher hier", ["Je suis allé au marché hier."]),
+            ("il a oublier les cle a la maison", ["il a oublié les clés à la maison"]),
+            ("tu peut venir demain", ["tu peux venir demain"]),
+            ("je suis aller au marcher hier", ["je suis allé au marché hier"]),
             ("On se voit à 18 h, comme prévu.", ["On se voit à 18 h, comme prévu.", "On se voit à 18h, comme prévu."]),
             ("Je n'ai pas écrit en français.", ["Je n'ai pas écrit en français."]),
+            ("je peut pas venir demain", ["je peux pas venir demain"]),
+            ("bah je pense que ça va pas le faire", ["bah je pense que ça va pas le faire"]),
+            ("on s'est tromper de train", ["on s'est trompé de train"]),
         ]
         for (input, expected) in cases {
-            let prompt = try library.render(action: "fix", text: input, format: format)
-            let generated = try await generator.generate(prompt, maxTokens: 80, onPartial: nil)
-            let output = library.clean(generated.text, format: format)
-            let verdict = try OutputGuard(library: library, action: "fix", text: input).evaluate(source: input, output: output)
-            print("METRIC french input=\(input.debugDescription) output=\(output.debugDescription) verdict=\(verdict)")
-            XCTAssertTrue(expected.map { $0.trimmingCharacters(in: ["."]) }.contains(output.replacingOccurrences(of: "’", with: "'").trimmingCharacters(in: ["."])), output)
-            XCTAssertTrue(verdict.isAccepted, "\(input): \(verdict)")
+            let result = try await assistant.run(actionID: "fix", text: input)
+            let output = result.output.replacingOccurrences(of: "’", with: "'").lowercased()
+            print("METRIC french input=\(input.debugDescription) output=\(result.output.debugDescription) seconds=\(result.stats.totalSeconds)")
+            XCTAssertTrue(expected.map { $0.lowercased() }.contains(output), result.output)
+            XCTAssertEqual(result.rejectedChunks, 0, input)
         }
     }
 
@@ -113,7 +137,8 @@ final class LlamaRuntimeTests: XCTestCase {
         let result = try await assistant.run(actionID: "fix", text: "Je cai pas écrit francai")
         XCTAssertGreaterThan(result.stats.cachedTokens, 0)
         XCTAssertEqual(result.rejectedChunks, 0)
-        XCTAssertTrue(result.output.contains("écrire"), result.output)
+        XCTAssertTrue(["Je sais pas écrire français", "Je sais pas comment écrire en français"]
+            .contains(result.output), result.output)
     }
 
     func testCancellationStopsGeneration() async throws {
@@ -208,7 +233,7 @@ final class LlamaRuntimeTests: XCTestCase {
             let result = try await assistant.run(actionID: "fix", text: c.input)
             latencies.append(Date().timeIntervalSince(start))
             let shown = norm(result.output)
-            let ok = c.accept.map { norm($0) }.contains { $0 == shown || $0.trimmingCharacters(in: ["."]) == shown.trimmingCharacters(in: ["."]) }
+            let ok = c.accept.map { norm(TextChunker.preserveEnding(of: c.input, in: $0)) }.contains(shown)
             if ok { correct += 1 }
             if !ok && shown != norm(c.input) && Similarity.ratio(shown, norm(c.input)) < 0.75 { harmful += 1 }
             rows.append(["id": c.id, "input": c.input, "output": result.output, "ok": ok ? "1" : "0"])

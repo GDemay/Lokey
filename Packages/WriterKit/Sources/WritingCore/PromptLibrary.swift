@@ -46,6 +46,12 @@ public struct RenderedPrompt: Sendable, Equatable {
     public var suffix: String
     public var stop: [String]
     public var full: String { prefix + suffix }
+
+    public init(prefix: String, suffix: String, stop: [String] = []) {
+        self.prefix = prefix
+        self.suffix = suffix
+        self.stop = stop
+    }
 }
 
 public enum PromptError: Error, Equatable {

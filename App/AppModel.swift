@@ -18,8 +18,14 @@ final class AppModel: ObservableObject {
     private let settingsStore = SettingsStore.shared()
     private let downloader = ModelDownloader()
 
-    @Published var settings: AppSettings { didSet { settingsStore.save(settings) } }
+    @Published var settings: AppSettings {
+        didSet {
+            settingsStore.save(settings)
+            if settings.selectedModelID != oldValue.selectedModelID { refreshActiveModel() }
+        }
+    }
     @Published private(set) var installed: Set<String> = []
+    @Published private(set) var activeModel: ModelInfo?
     @Published private(set) var downloads: [String: DownloadState] = [:]
     @Published private(set) var keyboardStatus: KeyboardStatus?
     @Published var isSettingUp: Bool
@@ -42,13 +48,21 @@ final class AppModel: ObservableObject {
         refresh()
     }
 
-    var activeModel: ModelInfo? {
-        AssistantFactory.selection(settings: settings, catalog: catalog, store: store)?.model
+    private func refreshActiveModel() {
+        let selection = AssistantFactory.selection(settings: settings, catalog: catalog, store: store)?.model
+        if activeModel != selection { activeModel = selection }
     }
 
     func refresh() {
-        installed = Set(store.installed(in: catalog).map(\.id))
-        keyboardStatus = settingsStore.loadKeyboardStatus()
+        let available = Set(store.installed(in: catalog).map(\.id))
+        if installed != available { installed = available }
+        refreshActiveModel()
+        refreshKeyboardStatus()
+    }
+
+    func refreshKeyboardStatus() {
+        let status = settingsStore.loadKeyboardStatus()
+        if keyboardStatus != status { keyboardStatus = status }
     }
 
     func startSetup() {
@@ -101,7 +115,7 @@ final class AppModel: ObservableObject {
         let current = downloads[model.id]
         switch event {
         case .progress(let p):
-            guard case .downloading? = current else { return }
+            guard case .downloading(let previous)? = current, Int(p * 100) != Int(previous * 100) else { return }
             downloads[model.id] = .downloading(p)
         case .verifying:
             guard current != nil else { return }

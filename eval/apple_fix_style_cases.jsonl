@@ -1,0 +1,64 @@
+{"id": "fr-fix-01", "cat": "casual", "input": "franchement j’ai oublier mon sac chez toi", "accept": ["franchement j’ai oublié mon sac chez toi"]}
+{"id": "fr-fix-02", "cat": "casual", "input": "t'as pas recu mon message ?", "accept": ["t'as pas reçu mon message ?"]}
+{"id": "fr-fix-03", "cat": "casual", "input": "bah on a pris les mauvaise clés", "accept": ["bah on a pris les mauvaises clés"]}
+{"id": "fr-fix-04", "cat": "casual", "input": "il faut que tu me dises si t'est dispo", "accept": ["il faut que tu me dises si t'es dispo"]}
+{"id": "fr-fix-05", "cat": "casual", "input": "on a été au ciné et j’ai trop aimer", "accept": ["on a été au ciné et j’ai trop aimé"]}
+{"id": "fr-fix-06", "cat": "casual", "input": "désolé j’ai pas pu répondre, j’étais en reunions", "accept": ["désolé j’ai pas pu répondre, j’étais en réunions"]}
+{"id": "fr-fix-07", "cat": "casual", "input": "je crois qu'elle vient pas parce qu'elle a oublier", "accept": ["je crois qu'elle vient pas parce qu'elle a oublié"]}
+{"id": "fr-fix-08", "cat": "casual", "input": "mais tu peut me dire vers quelle heure stp", "accept": ["mais tu peux me dire vers quelle heure stp"]}
+{"id": "fr-fix-09", "cat": "casual", "input": "j'suis pas sur que ça marche 😂", "accept": ["j'suis pas sûr que ça marche 😂"]}
+{"id": "fr-fix-10", "cat": "casual", "input": "bah ils sont arriver en avance", "accept": ["bah ils sont arrivés en avance"]}
+{"id": "fr-fix-11", "cat": "casual", "input": "tkt je ramene un truc à manger", "accept": ["tkt je ramène un truc à manger"]}
+{"id": "fr-fix-12", "cat": "casual", "input": "ah non les enfants joue dehors", "accept": ["ah non les enfants jouent dehors"]}
+{"id": "fr-fix-13", "cat": "casual", "input": "il faut que je fait ça ce soir", "accept": ["il faut que je fasse ça ce soir"]}
+{"id": "fr-fix-14", "cat": "casual", "input": "j’espère que t’as bien dormis", "accept": ["j’espère que t’as bien dormi"]}
+{"id": "fr-fix-15", "cat": "casual", "input": "j'ai chercher partout, j'ai rien trouver", "accept": ["j'ai cherché partout, j'ai rien trouvé"]}
+{"id": "fr-fix-16", "cat": "casual", "input": "je suis aller au marché hier, c'était cool", "accept": ["je suis allé au marché hier, c'était cool"]}
+{"id": "fr-fix-17", "cat": "casual", "input": "bah j’ai pas recu le colis\ntu peux vérifier stp", "accept": ["bah j’ai pas reçu le colis\ntu peux vérifier stp"]}
+{"id": "fr-fix-18", "cat": "casual", "input": "je crois que c’etait trop tard pour réserver", "accept": ["je crois que c’était trop tard pour réserver"]}
+{"id": "fr-fix-19", "cat": "casual", "input": "Je ne veut pas changer de train", "accept": ["Je ne veux pas changer de train"]}
+{"id": "fr-fix-20", "cat": "casual", "input": "Tu veut venir avec nous ??", "accept": ["Tu veux venir avec nous ??"]}
+{"id": "fr-keep-21", "cat": "casual", "input": "bah j’ai pas trop envie", "accept": ["bah j’ai pas trop envie"]}
+{"id": "fr-keep-22", "cat": "casual", "input": "mdr t'as vu sa tête 😂", "accept": ["mdr t'as vu sa tête 😂"]}
+{"id": "fr-keep-23", "cat": "casual", "input": "j'suis dans le métro, je te redis", "accept": ["j'suis dans le métro, je te redis"]}
+{"id": "fr-keep-24", "cat": "casual", "input": "t'as pas oublié les clés ?", "accept": ["t'as pas oublié les clés ?"]}
+{"id": "fr-keep-25", "cat": "casual", "input": "je sais pas si ça va le faire", "accept": ["je sais pas si ça va le faire"]}
+{"id": "fr-keep-26", "cat": "casual", "input": "on se voit demain, si t'es dispo", "accept": ["on se voit demain, si t'es dispo"]}
+{"id": "fr-keep-27", "cat": "casual", "input": "tu passes vers quelle heure ??", "accept": ["tu passes vers quelle heure ??"]}
+{"id": "fr-keep-28", "cat": "casual", "input": "ouais j'ai capté, tkt", "accept": ["ouais j'ai capté, tkt"]}
+{"id": "fr-keep-29", "cat": "casual", "input": "il faut qu'on se voie vite", "accept": ["il faut qu'on se voie vite"]}
+{"id": "fr-keep-30", "cat": "casual", "input": "j’ai trop hâte de te voir !!", "accept": ["j’ai trop hâte de te voir !!"]}
+{"id": "fr-keep-31", "cat": "casual", "input": "on fait comme ça\nje t'envoie l'adresse", "accept": ["on fait comme ça\nje t'envoie l'adresse"]}
+{"id": "fr-keep-32", "cat": "casual", "input": "j'ai dit que je pouvais pas venir ce soir", "accept": ["j'ai dit que je pouvais pas venir ce soir"]}
+{"id": "en-fix-01", "cat": "casual", "input": "yeah i cant make it tonight", "accept": ["yeah I can't make it tonight"]}
+{"id": "en-fix-02", "cat": "casual", "input": "tbh i dont think its gonna work", "accept": ["tbh I don't think it's gonna work"]}
+{"id": "en-fix-03", "cat": "casual", "input": "thats kinda weird ngl", "accept": ["that's kinda weird ngl"]}
+{"id": "en-fix-04", "cat": "casual", "input": "we was gonna go earlier", "accept": ["we were gonna go earlier"]}
+{"id": "en-fix-05", "cat": "casual", "input": "hey did you recieve my message ?", "accept": ["hey did you receive my message ?"]}
+{"id": "en-fix-06", "cat": "casual", "input": "she dont wanna go anymore", "accept": ["she doesn't wanna go anymore"]}
+{"id": "en-fix-07", "cat": "casual", "input": "their coming over later lol", "accept": ["they're coming over later lol"]}
+{"id": "en-fix-08", "cat": "casual", "input": "if your free later, give me a call", "accept": ["if you're free later, give me a call"]}
+{"id": "en-fix-09", "cat": "casual", "input": "i could of told you that yesterday", "accept": ["I could have told you that yesterday"]}
+{"id": "en-fix-10", "cat": "casual", "input": "he shouldnt of said that", "accept": ["he shouldn't have said that"]}
+{"id": "en-fix-11", "cat": "casual", "input": "hey i left my key at your place\ncan you bring it tomorow", "accept": ["hey I left my key at your place\ncan you bring it tomorrow"]}
+{"id": "en-fix-12", "cat": "casual", "input": "i seen her at the store earlier", "accept": ["I saw her at the store earlier"]}
+{"id": "en-fix-13", "cat": "casual", "input": "i havent got any updates yet 🙃", "accept": ["I haven't got any updates yet 🙃"]}
+{"id": "en-fix-14", "cat": "casual", "input": "we dont have enough chair for everyone", "accept": ["we don't have enough chairs for everyone"]}
+{"id": "en-fix-15", "cat": "casual", "input": "yeah i wouldve done the same thing", "accept": ["yeah I would've done the same thing"]}
+{"id": "en-fix-16", "cat": "casual", "input": "that sound pretty good to me", "accept": ["that sounds pretty good to me"]}
+{"id": "en-fix-17", "cat": "casual", "input": "cant belive you did that lol", "accept": ["can't believe you did that lol"]}
+{"id": "en-fix-18", "cat": "casual", "input": "im not gonna lie, that was definetly fun", "accept": ["I'm not gonna lie, that was definitely fun"]}
+{"id": "en-fix-19", "cat": "casual", "input": "you dont know what your missing!!", "accept": ["you don't know what you're missing!!"]}
+{"id": "en-fix-20", "cat": "casual", "input": "i dont think i can make it on friday, sorry", "accept": ["I don't think I can make it on Friday, sorry"]}
+{"id": "en-keep-21", "cat": "casual", "input": "yeah I kinda get it", "accept": ["yeah I kinda get it"]}
+{"id": "en-keep-22", "cat": "casual", "input": "tbh I don't wanna go", "accept": ["tbh I don't wanna go"]}
+{"id": "en-keep-23", "cat": "casual", "input": "nah we're good lol", "accept": ["nah we're good lol"]}
+{"id": "en-keep-24", "cat": "casual", "input": "I'm gonna grab food first", "accept": ["I'm gonna grab food first"]}
+{"id": "en-keep-25", "cat": "casual", "input": "thanks for the heads up 🙏", "accept": ["thanks for the heads up 🙏"]}
+{"id": "en-keep-26", "cat": "casual", "input": "you're still coming, right??", "accept": ["you're still coming, right??"]}
+{"id": "en-keep-27", "cat": "casual", "input": "I would've called if I'd known", "accept": ["I would've called if I'd known"]}
+{"id": "en-keep-28", "cat": "casual", "input": "see you in a bit!", "accept": ["see you in a bit!"]}
+{"id": "en-keep-29", "cat": "casual", "input": "lemme check, brb", "accept": ["lemme check, brb"]}
+{"id": "en-keep-30", "cat": "casual", "input": "not gonna lie, that's pretty funny", "accept": ["not gonna lie, that's pretty funny"]}
+{"id": "en-keep-31", "cat": "casual", "input": "I've got the keys\nsee you soon", "accept": ["I've got the keys\nsee you soon"]}
+{"id": "en-keep-32", "cat": "casual", "input": "lol I don't think so", "accept": ["lol I don't think so"]}

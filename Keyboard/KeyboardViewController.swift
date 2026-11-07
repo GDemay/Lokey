@@ -1,23 +1,31 @@
+import AppleRuntime
 import KeyboardUI
 import LlamaRuntime
 import SwiftUI
 import UIKit
 import WritingCore
 
-/// The custom keyboard. Inference runs in this process: the model file is memory-mapped
-/// from the App Group container (weights don't count toward the extension's memory limit)
-/// and llama.cpp runs CPU-only with small buffers (see LlamaGenerator.Configuration.keyboard).
+/// The custom keyboard. Downloaded models use llama.cpp with small CPU-only buffers.
+/// Apple Intelligence Fix uses the system's on-device model.
 final class KeyboardViewController: UIInputViewController, KeyboardHost {
     private var controller: KeyboardController!
     private var hosting: UIHostingController<KeyboardView>!
+    private var keyboardHeight: NSLayoutConstraint!
     private let settingsStore = SettingsStore.shared()
+    private static let historyQueue = DispatchQueue(label: "lokey.learning-history", qos: .utility)
     private var loadedModel: ModelInfo?
+    private var appleFix: WritingAssistant?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         let document = ProxyDocument(owner: self)
         let store = settingsStore
-        controller = KeyboardController(document: document, host: self, settings: store.load()) { [weak self] in
+        controller = KeyboardController(document: document, host: self, settings: store.load(), appleFixProvider: { [weak self] in
+            guard let self else { throw CancellationError() }
+            let assistant = try self.appleFixAssistant()
+            self.reportStatus()
+            return assistant
+        }) { [weak self] in
             let (assistant, model) = try await KeyboardEngine.shared.assistant(settings: store.load())
             self?.loadedModel = model
             self?.reportStatus()
@@ -35,20 +43,28 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
             hosting.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         hosting.didMove(toParent: self)
-        let height = view.heightAnchor.constraint(equalToConstant: KeyboardView.preferredHeight)
-        height.priority = UILayoutPriority.defaultHigh
-        height.isActive = true
+        keyboardHeight = view.heightAnchor.constraint(equalToConstant: KeyboardView.preferredHeight(for: controller.settings.keyboardLayout))
+        keyboardHeight.priority = UILayoutPriority.defaultHigh
+        keyboardHeight.isActive = true
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         controller.settings = settingsStore.load()
+        if !controller.settings.useAppleIntelligenceForFix { appleFix = nil }
+        keyboardHeight.constant = KeyboardView.preferredHeight(for: controller.settings.keyboardLayout)
         controller.resetTransientState()
         reportStatus()
         let preload = hasFullAccess && controller.settings.autocorrectMode != .off
         Diagnostics.log("keyboard will appear (full access: \(hasFullAccess), preload: \(preload)); \(MemoryBudget.summary())")
         if preload {
             controller.prepareEngine()
+        }
+        if controller.settings.useAppleIntelligenceForFix, let assistant = try? appleFixAssistant() {
+            let text = textDocumentProxy.documentContextBeforeInput ?? ""
+            let french = CorrectionLanguage.detect(in: text) == .french
+                || (text.isEmpty && controller.settings.keyboardLayout.resolved() == .azerty)
+            Task { await assistant.prewarm(actionID: french ? "fix_french" : "fix") }
         }
     }
 
@@ -68,6 +84,7 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
         super.didReceiveMemoryWarning()
         Diagnostics.log("keyboard memory warning; " + MemoryBudget.summary())
         loadedModel = nil
+        appleFix = nil
         reportStatus()
         controller.releaseEngine()
         KeyboardEngine.shared.release()
@@ -80,10 +97,26 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
                                     checkID: settingsStore.load().keyboardCheckID)
         status.footprintMB = MemoryBudget.footprintBytes().map { Double($0) / 1_048_576 }
         status.peakFootprintMB = MemoryBudget.peakFootprintBytes().map { Double($0) / 1_048_576 }
+        status.appleFixReady = appleFix != nil
         settingsStore.saveKeyboardStatus(status)
     }
 
+    private func appleFixAssistant() throws -> WritingAssistant {
+        if let reason = AppleFix.unavailableReason { throw GeneratorError.unavailable(reason) }
+        if let appleFix { return appleFix }
+        let assistant = try AppleFix.makeAssistant()
+        appleFix = assistant
+        return assistant
+    }
+
     // MARK: KeyboardHost
+
+    var localModelName: String? { loadedModel?.name }
+    var selectedLocalModelName: String? {
+        guard let catalog = try? ModelCatalog.bundled() else { return nil }
+        return AssistantFactory.selection(settings: controller.settings, catalog: catalog, store: .shared())?.model.name
+    }
+    var appleFixUnavailableReason: String? { AppleFix.unavailableReason }
 
     var returnKeyTitle: String {
         switch textDocumentProxy.returnKeyType ?? .default {
@@ -108,6 +141,31 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
 
     func playInputClick() {
         UIDevice.current.playInputClick()
+    }
+
+    func recordCorrection(original: String, corrected: String, languageHint: String?) -> UUID? {
+        guard let history = CorrectionHistory.shared() else { return nil }
+        let id = UUID()
+        let date = Date()
+        Self.historyQueue.async {
+            do {
+                try history.record(id: id, date: date, original: original, corrected: corrected, languageHint: languageHint)
+            } catch {
+                Diagnostics.log("Could not save a correction.")
+            }
+        }
+        return id
+    }
+
+    func removeCorrection(_ id: UUID) {
+        guard let history = CorrectionHistory.shared() else { return }
+        Self.historyQueue.async {
+            do {
+                try history.remove(id)
+            } catch {
+                Diagnostics.log("Could not remove a correction.")
+            }
+        }
     }
 
     func didFinishModelRequest() {

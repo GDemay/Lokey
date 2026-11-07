@@ -1,3 +1,4 @@
+import AppleRuntime
 import SwiftUI
 import WritingCore
 
@@ -6,6 +7,16 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                Toggle("Apple Intelligence", isOn: $model.settings.useAppleIntelligenceForFix)
+                    .disabled(AppleFix.unavailableReason != nil && !model.settings.useAppleIntelligenceForFix)
+                    .accessibilityIdentifier("settings.appleFix")
+            } header: {
+                Text("Fix")
+            } footer: {
+                Text(AppleFix.unavailableReason ?? "Use Apple Intelligence when you tap Fix. If it can’t correct the text, a downloaded model can try instead. Translation, rewrites, and corrections while typing use the downloaded model.")
+            }
+
             Section {
                 Picker("Keyboard layout", selection: $model.settings.keyboardLayout) {
                     ForEach(KeyboardLayout.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -22,14 +33,14 @@ struct SettingsView: View {
             } header: {
                 Text("Keyboard")
             } footer: {
-                Text("Automatic fixes small errors when you finish a sentence, with one tap to undo. Suggest shows a correction above the keys for you to apply.")
+                Text("Automatic fixes clear French typos when you press Space on AZERTY. It also fixes small errors when you finish a sentence. You can undo either correction. Suggest shows sentence corrections above the keys for you to apply.")
             }
 
             Section("Privacy") {
                 Label("Text is processed on your iPhone", systemImage: "iphone")
                 Label("No account, ads, or analytics", systemImage: "hand.raised")
                 Label("The keyboard makes no internet requests", systemImage: "wifi.slash")
-                Text("Full Access lets the keyboard save status and diagnostics for this app. Your text stays on your iPhone.")
+                Text("Full Access lets the keyboard save status and any corrections you choose to keep. Your text stays on your iPhone.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
 

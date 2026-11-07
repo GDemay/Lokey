@@ -44,7 +44,9 @@ public struct OutputGuard: Sendable {
         if ratio < config.minLengthRatio || ratio > config.maxLengthRatio { return .rejected(.length) }
         if !config.allowNewLines && newlineCount(output) > newlineCount(source) { return .rejected(.newlines) }
         if config.rejectAssistantOpeners {
-            let o = normalizedStart(output), s = normalizedStart(source)
+            // A kept or restored chat reaction must not hide a newly added assistant opener.
+            let o = normalizedStart(CasualWording.afterReaction(in: output))
+            let s = normalizedStart(CasualWording.afterReaction(in: source))
             for opener in assistantOpeners where o.hasPrefix(opener) && !s.hasPrefix(opener) {
                 return .rejected(.opener)
             }
@@ -63,7 +65,7 @@ public struct OutputGuard: Sendable {
         s.unicodeScalars.filter { $0 == "\n" }.count
     }
 
-    private func normalizedStart(_ s: String) -> String {
+    private func normalizedStart(_ s: Substring) -> String {
         s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().replacingOccurrences(of: "\u{2019}", with: "'")
     }
 }
