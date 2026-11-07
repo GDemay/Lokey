@@ -11,13 +11,23 @@ public protocol KeyboardHost: AnyObject {
     var needsInputModeSwitchKey: Bool { get }
     var returnKeyTitle: String { get }
     var autocapitalizesSentences: Bool { get }
+    var localModelName: String? { get }
+    var selectedLocalModelName: String? { get }
+    var appleFixUnavailableReason: String? { get }
     func advanceToNextInputMode()
     func playInputClick()
+    func recordCorrection(original: String, corrected: String, languageHint: String?) -> UUID?
+    func removeCorrection(_ id: UUID)
     /// Called after each model request, e.g. to record the process's peak memory.
     func didFinishModelRequest()
 }
 
 public extension KeyboardHost {
+    var localModelName: String? { nil }
+    var selectedLocalModelName: String? { nil }
+    var appleFixUnavailableReason: String? { nil }
+    func recordCorrection(original: String, corrected: String, languageHint: String?) -> UUID? { nil }
+    func removeCorrection(_ id: UUID) {}
     func didFinishModelRequest() {}
 }
 
@@ -29,7 +39,7 @@ public typealias AssistantProvider = @MainActor () async throws -> WritingAssist
 public final class KeyboardController: ObservableObject {
     public enum Layer: Equatable { case letters, numbers, symbols }
     public enum Shift: Equatable { case off, once, locked }
-    public enum Panel: Equatable { case keys, enhance, translate, emoji }
+    public enum Panel: Equatable { case keys, enhance, translate, emoji, models }
 
     public enum Phase: Equatable {
         case idle
@@ -45,10 +55,16 @@ public final class KeyboardController: ObservableObject {
         public var pending: PendingCorrection
         public var corrected: String
         public var summary: String
+        var historyID: UUID?
     }
 
     public enum EngineStatus: Equatable {
         case idle, loading, ready, unavailable(String)
+    }
+
+    public enum FixFallback: Equatable {
+        case preparing
+        case localModel(String)
     }
 
     /// What an action read from the document, so Apply can check nothing moved since.
@@ -65,9 +81,10 @@ public final class KeyboardController: ObservableObject {
     @Published public private(set) var suggestions: [String] = []
     /// Time from tapping an action to its result, including any model loading or queueing.
     @Published public private(set) var lastWaitSeconds: Double?
+    @Published public private(set) var fixFallback: FixFallback?
     @Published public private(set) var liveNotice: LiveNotice?
     @Published public private(set) var engineStatus: EngineStatus = .idle
-    @Published private var undoRecord: (original: String, replacement: String)?
+    @Published private var undoRecord: (original: String, replacement: String, historyID: UUID?)?
     @Published public var settings: AppSettings {
         didSet {
             if modelKey(settings) != modelKey(oldValue) { dropEngine() }
@@ -78,6 +95,7 @@ public final class KeyboardController: ObservableObject {
     public weak var host: KeyboardHost?
 
     private let assistantProvider: AssistantProvider
+    private let appleFixProvider: AssistantProvider
     private var assistant: WritingAssistant?
     /// One in-flight model load shared by every caller (the keyboard can't afford two).
     private var loadTask: Task<WritingAssistant, Error>?
@@ -90,13 +108,18 @@ public final class KeyboardController: ObservableObject {
     private var declined: Set<String> = []
     private var lastSpaceTime: Date?
     private let textChecker = UITextChecker()
+    private var spellingSuggestionLanguage: String?
     private let haptics = UIImpactFeedbackGenerator(style: .light)
 
     public init(document: TextDocument, host: KeyboardHost?, settings: AppSettings,
+                appleFixProvider: @escaping AssistantProvider = {
+                    throw GeneratorError.unavailable("Apple Intelligence is unavailable.")
+                },
                 assistantProvider: @escaping AssistantProvider) {
         self.document = document
         self.host = host
         self.settings = settings
+        self.appleFixProvider = appleFixProvider
         self.assistantProvider = assistantProvider
     }
 
@@ -129,8 +152,17 @@ public final class KeyboardController: ObservableObject {
             afterEdit(inserted: ". ")
             return
         }
-        document.insertText(" ")
+        let correction = wordCorrection(before: before)
+        if let (word, replacement) = correction {
+            EditPlanner.apply(EditPlanner.plan(original: word, replacement: replacement + " "), to: document)
+        } else {
+            document.insertText(" ")
+        }
         afterEdit(inserted: " ")
+        if let (word, replacement) = correction {
+            let historyID = recordCorrection(original: word, corrected: replacement, languageHint: "fr")
+            undoRecord = (word + " ", replacement + " ", historyID)
+        }
         lastSpaceTime = Date()
         if layer != .letters { layer = .letters }
     }
@@ -139,6 +171,17 @@ public final class KeyboardController: ObservableObject {
         feedback()
         document.insertText("\n")
         afterEdit(inserted: "\n")
+    }
+
+    func moveTypingCursor(by offset: Int) {
+        guard offset != 0 else { return }
+        let context = offset < 0 ? document.documentContextBeforeInput : document.documentContextAfterInput
+        guard let context else { return }
+        let crossed = offset < 0 ? context.suffix(-offset) : context.prefix(offset)
+        guard !crossed.isEmpty, EditPlanner.isOffsetSafe(String(crossed)) else { return }
+        lastSpaceTime = nil
+        undoRecord = nil
+        document.adjustTextPosition(byCharacterOffset: offset < 0 ? -crossed.count : crossed.count)
     }
 
     public func backspace() {
@@ -179,8 +222,12 @@ public final class KeyboardController: ObservableObject {
 
     public func applySuggestion(_ word: String) {
         let current = Self.currentWord(in: document.documentContextBeforeInput ?? "")
+        let language = spellingSuggestionLanguage
         for _ in 0..<current.count { document.deleteBackward() }
         document.insertText(word + " ")
+        if let language, current != word {
+            _ = recordCorrection(original: current, corrected: word, languageHint: language)
+        }
         afterEdit(inserted: " ")
     }
 
@@ -205,6 +252,7 @@ public final class KeyboardController: ObservableObject {
         actionTask?.cancel()
         liveTask?.cancel()
         phase = .idle
+        fixFallback = nil
         panel = .keys
         liveNotice = nil
         undoRecord = nil
@@ -241,17 +289,51 @@ public final class KeyboardController: ObservableObject {
         String(before.reversed().prefix(while: { $0.isLetter || $0 == "'" || $0 == "’" }).reversed())
     }
 
+    private func wordCorrection(before: String) -> (word: String, replacement: String)? {
+        guard settings.autocorrectMode == .automatic, settings.keyboardLayout.resolved() == .azerty,
+              document.selectedText?.isEmpty != false else { return nil }
+        let after = document.documentContextAfterInput
+        guard after?.first.map(\.isWhitespace) != false else { return nil }
+        let word = Self.currentWord(in: before)
+        let prefix = before.dropLast(word.count)
+        guard (4...24).contains(word.count), word.allSatisfy(\.isLetter),
+              word.dropFirst().allSatisfy(\.isLowercase),
+              prefix.last?.isWhitespace != false else { return nil }
+        if word.first?.isUppercase == true {
+            let previous = prefix.reversed().drop(while: { $0.isWhitespace && !$0.isNewline }).first
+            if let previous, !previous.isNewline, !TextChunker.sentenceTerminators.contains(previous) {
+                return nil
+            }
+        }
+        let range = NSRange(location: 0, length: word.utf16.count)
+        guard let guesses = spellingGuesses(for: word, range: range, language: "fr_FR"),
+              let replacement = AzertyWordCorrection.uniqueMatch(for: word, guesses: guesses),
+              textChecker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0,
+                                               wrap: false, language: "en_US").location != NSNotFound,
+              document.documentContextBeforeInput == before, document.documentContextAfterInput == after,
+              document.selectedText?.isEmpty != false else { return nil }
+        return (word, replacement)
+    }
+
+    private func spellingGuesses(for word: String, range: NSRange, language: String) -> [String]? {
+        let misspelled = textChecker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0,
+                                                          wrap: false, language: language)
+        guard misspelled.location != NSNotFound else { return nil }
+        return textChecker.guesses(forWordRange: range, in: word, language: language) ?? []
+    }
+
     private func updateSuggestions() {
+        spellingSuggestionLanguage = nil
         guard settings.spellingSuggestions else { suggestions = []; return }
         let word = Self.currentWord(in: document.documentContextBeforeInput ?? "")
         guard word.count >= 2 else { suggestions = []; return }
         let context = String((document.documentContextBeforeInput ?? "").suffix(180))
         let language = CorrectionLanguage.detect(in: context) == .french ? "fr_FR" : "en_US"
         let range = NSRange(location: 0, length: (word as NSString).length)
-        let misspelled = textChecker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0, wrap: false, language: language)
         var result: [String]
-        if misspelled.location != NSNotFound {
-            result = textChecker.guesses(forWordRange: range, in: word, language: language) ?? []
+        if let guesses = spellingGuesses(for: word, range: range, language: language) {
+            result = guesses
+            spellingSuggestionLanguage = language == "fr_FR" ? "fr" : "en"
         } else {
             result = textChecker.completions(forPartialWordRange: range, in: word, language: language) ?? []
             if !result.contains(word) { result.insert(word, at: 0) }
@@ -333,6 +415,11 @@ public final class KeyboardController: ObservableObject {
     }
 
     public func run(_ action: WritingAction) {
+        run(action, retryingWithLocalModel: false)
+    }
+
+    private func run(_ action: WritingAction, retryingWithLocalModel: Bool) {
+        fixFallback = nil
         guard action.id != WritingAction.ask.id else {
             phase = .message("This action is not available.")
             return
@@ -350,30 +437,63 @@ public final class KeyboardController: ObservableObject {
         actionTask?.cancel()
         actionTask = Task {
             do {
-                let assistant = try await readyAssistant()
-                let result = try await assistant.run(actionID: action.id, text: target.text) { partial in
+                let onPartial: @Sendable (String) -> Void = { partial in
                     Task { @MainActor [weak self] in
                         guard let self, case .working(let current, _) = self.phase, current == action else { return }
                         self.phase = .working(action: action, partial: partial)
                     }
                 }
+                let result = try await runAction(action, target: target, retryingWithLocalModel: retryingWithLocalModel,
+                                                 onPartial: onPartial)
                 host?.didFinishModelRequest()
                 try Task.checkCancellation()
                 lastWaitSeconds = Date().timeIntervalSince(started)
                 if !result.hasChanges {
-                    phase = .message(result.rejectedChunks > 0 ? "No safe suggestion for this text." : "Looks good. Nothing to fix.")
-                } else if action == .fix && !settings.showChangesBeforeApplying {
+                    phase = .message(result.rejectedChunks > 0 ? "No safe suggestion for this text." : "No changes suggested.")
+                } else if action == .fix && !settings.showChangesBeforeApplying && fixFallback == nil {
                     apply(result, target: target)
                 } else {
                     pendingTarget = target
                     phase = .result(action: action, result: result)
                 }
             } catch is CancellationError {
-                if case .working(let current, _) = phase, current == action { phase = .idle }
+                if !Task.isCancelled, case .working(let current, _) = phase, current == action { phase = .idle }
             } catch {
+                guard !Task.isCancelled else { return }
                 phase = .message(error.localizedDescription)
             }
         }
+    }
+
+    private func runAction(_ action: WritingAction, target: Target, retryingWithLocalModel: Bool,
+                           onPartial: @escaping @Sendable (String) -> Void) async throws -> AssistantResult {
+        if action == .fix && settings.useAppleIntelligenceForFix {
+            if !retryingWithLocalModel {
+                do {
+                    let apple = try await appleFixProvider()
+                    return try await apple.run(actionID: action.id, text: target.text, onPartial: onPartial)
+                } catch GeneratorError.appleFixDeclined {
+                    try Task.checkCancellation()
+                }
+            }
+            fixFallback = .preparing
+            let local: WritingAssistant
+            do {
+                local = try await readyAssistant()
+            } catch GeneratorError.noKeyboardModel {
+                try Task.checkCancellation()
+                fixFallback = nil
+                throw GeneratorError.unavailable("Apple Intelligence couldn’t complete Fix. Download a local model in Lokey to try again.")
+            }
+            try Task.checkCancellation()
+            guard currentTarget() == target else {
+                throw GeneratorError.unavailable("The text changed. Run it again.")
+            }
+            fixFallback = .localModel(host?.localModelName ?? "Local model")
+            return try await local.run(actionID: action.id, text: target.text, onPartial: onPartial)
+        }
+        let local = try await readyAssistant()
+        return try await local.run(actionID: action.id, text: target.text, onPartial: onPartial)
     }
 
     public func applyResult() {
@@ -390,12 +510,13 @@ public final class KeyboardController: ObservableObject {
         }
         if target.isSelection {
             document.insertText(result.output)
-            undoRecord = nil
         } else {
             if !target.after.isEmpty { document.adjustTextPosition(byCharacterOffset: target.after.count) }
             EditPlanner.apply(EditPlanner.plan(original: result.original, replacement: result.output), to: document)
-            undoRecord = (result.original, result.output)
         }
+        let historyID = result.actionID == WritingAction.fix.id
+            ? recordCorrection(original: result.original, corrected: result.output) : nil
+        undoRecord = target.isSelection ? nil : (result.original, result.output, historyID)
         pendingTarget = nil
         phase = .idle
         notifySuccess()
@@ -410,19 +531,26 @@ public final class KeyboardController: ObservableObject {
         let before = document.documentContextBeforeInput ?? ""
         // Hosts may truncate the context; accept a visible tail of the replacement.
         let intact = before.hasSuffix(record.replacement) || (before.count >= 40 && record.replacement.hasSuffix(before))
-        guard intact else { return }
+        guard intact, document.selectedText?.isEmpty != false else { return }
         EditPlanner.apply(EditPlanner.plan(original: record.replacement, replacement: record.original), to: document)
+        if let id = record.historyID { host?.removeCorrection(id) }
         updateShiftForContext()
     }
 
     public func retry() {
-        if case .result(let action, _) = phase { run(action) }
+        if case .result(let action, _) = phase { run(action, retryingWithLocalModel: fixFallback != nil) }
     }
 
     public func dismissPhase() {
         actionTask?.cancel()
         pendingTarget = nil
+        fixFallback = nil
         phase = .idle
+    }
+
+    func openPanel(_ panel: Panel) {
+        dismissPhase()
+        self.panel = panel
     }
 
     // MARK: Autocorrect as you type
@@ -446,7 +574,9 @@ public final class KeyboardController: ObservableObject {
             let summary = result.changes.prefix(2).joined(separator: ", ")
             if settings.autocorrectMode == .automatic, result.changeRatio <= settings.automaticMaxChange {
                 EditPlanner.apply(steps, to: document)
-                liveNotice = LiveNotice(kind: .applied, pending: pending, corrected: corrected, summary: summary)
+                let historyID = recordCorrection(original: pending.original, corrected: corrected)
+                liveNotice = LiveNotice(kind: .applied, pending: pending, corrected: corrected, summary: summary,
+                                        historyID: historyID)
             } else {
                 liveNotice = LiveNotice(kind: .suggested, pending: pending, corrected: corrected, summary: summary)
             }
@@ -462,12 +592,14 @@ public final class KeyboardController: ObservableObject {
         case .suggested:
             if let steps = livePolicy.reconcile(notice.pending, corrected: notice.corrected, contextBefore: before) {
                 EditPlanner.apply(steps, to: document)
+                _ = recordCorrection(original: notice.pending.original, corrected: notice.corrected)
                 notifySuccess()
             }
         case .applied:
             let reverted = PendingCorrection(original: notice.corrected, tail: notice.pending.tail)
             if let steps = livePolicy.reconcile(reverted, corrected: notice.pending.original, contextBefore: before) {
                 EditPlanner.apply(steps, to: document)
+                if let id = notice.historyID { host?.removeCorrection(id) }
             }
             declined.insert(notice.pending.original)
         }
@@ -475,6 +607,11 @@ public final class KeyboardController: ObservableObject {
     }
 
     public func dismissLiveNotice() { liveNotice = nil }
+
+    private func recordCorrection(original: String, corrected: String, languageHint: String? = nil) -> UUID? {
+        guard settings.saveCorrectionHistory, let host, host.hasFullAccess else { return nil }
+        return host.recordCorrection(original: original, corrected: corrected, languageHint: languageHint)
+    }
 
     // MARK: Feedback
 

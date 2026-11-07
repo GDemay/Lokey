@@ -19,18 +19,20 @@ public struct AssistantResult: Sendable, Equatable {
 public final class WritingAssistant: @unchecked Sendable {
     public let library: PromptLibrary
     public let generator: TextGenerator
+    private let preserveCasualWording: Bool
     /// Corrections are made sentence group by sentence group to keep each call short.
     public var fixChunkCharacters = 400
     public var maxInputCharacters = 6_000
 
-    public init(library: PromptLibrary, generator: TextGenerator) {
+    public init(library: PromptLibrary, generator: TextGenerator, preserveCasualWording: Bool = false) {
         self.library = library
         self.generator = generator
+        self.preserveCasualWording = preserveCasualWording
     }
 
     /// Evaluates the fixed part of the prompt for `actionID` so the first request is fast.
     public func prewarm(actionID: String = WritingAction.fix.id) async {
-        guard let prompt = try? library.render(action: actionID, text: "", format: generator.format) else { return }
+        guard let prompt = try? generator.renderPrompt(library: library, actionID: actionID, text: "") else { return }
         try? await generator.prewarm(prefix: prompt.prefix)
     }
 
@@ -65,10 +67,15 @@ public final class WritingAssistant: @unchecked Sendable {
                     continue
                 }
                 let done = body
-                let (out, s) = try await generate(actionID: actionID, text: chunk.body, budgetFactor: 1.6, extra: 24) { partial in
+                let (generated, s) = try await generate(actionID: actionID, text: chunk.body, budgetFactor: 1.6, extra: 24) { partial in
                     onPartial?(leading + done + partial)
                 }
                 stats = stats + s
+                let endingPreserved = TextChunker.preserveEnding(of: chunk.body, in: generated)
+                let registerPreserved = Self.preserveFrenchRegister(of: chunk.body, in: endingPreserved)
+                let wordingPreserved = preserveCasualWording
+                    ? CasualWording.preserve(in: registerPreserved, from: chunk.body) : registerPreserved
+                let out = TextDiff.preservingApostrophes(from: chunk.body, in: wordingPreserved)
                 let outputGuard = try OutputGuard(library: library, action: actionID, text: chunk.body)
                 if outputGuard.evaluate(source: chunk.body, output: out).isAccepted {
                     body += out
@@ -100,10 +107,29 @@ public final class WritingAssistant: @unchecked Sendable {
                                segments: TextDiff.diff(text, output), stats: stats)
     }
 
+    // Match a simple subject–verb–pas clause to detect a newly added formal negation.
+    private static let frenchNegation = try! NSRegularExpression(
+        pattern: #"\A(je|tu|il|elle|on|nous|vous|ils|elles)([ \t]+)(ne[ \t]+|n['’])?\p{L}+[ \t]+pas\b"#,
+        options: .caseInsensitive
+    )
+
+    private static func preserveFrenchRegister(of source: String, in output: String) -> String {
+        guard let original = frenchNegation.firstMatch(in: source, range: NSRange(source.startIndex..., in: source)),
+              original.range(at: 3).location == NSNotFound,
+              let edit = frenchNegation.firstMatch(in: output, range: NSRange(output.startIndex..., in: output)),
+              let subject = Range(original.range(at: 1), in: source),
+              let editedSubject = Range(edit.range(at: 1), in: output),
+              source[subject].lowercased() == output[editedSubject].lowercased(),
+              let addedNe = Range(edit.range(at: 3), in: output) else { return output }
+        // Removing an elided negation can require changing the subject or guessing the intended verb.
+        guard output[addedNe].last?.isWhitespace == true else { return source }
+        return String(source[subject] + output[editedSubject.upperBound..<addedNe.lowerBound] + output[addedNe.upperBound...])
+    }
+
     private func generate(actionID: String, text: String, budgetFactor: Double, extra: Int,
                           onPartial: @escaping @Sendable (String) -> Void) async throws -> (String, GenerationStats) {
         let format = generator.format
-        let prompt = try library.render(action: actionID, text: text, format: format)
+        let prompt = try generator.renderPrompt(library: library, actionID: actionID, text: text)
         let maxTokens = Int(Double(generator.tokenCount(text)) * budgetFactor) + extra
         let library = self.library
         let result = try await generator.generate(prompt, maxTokens: maxTokens) { partial in

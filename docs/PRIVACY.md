@@ -6,8 +6,10 @@ Lokey is an on-device keyboard made by Guillaume Demay. It has no account,
 advertising, analytics, or tracking. We do not collect your typed text.
 
 The keyboard reads nearby text to suggest and apply edits. AI processing stays on
-your iPhone. The keyboard makes no internet requests. Text entered in the optional
-keyboard check stays in that view and is not saved by Lokey.
+your iPhone. The keyboard makes no internet requests. If you turn on Correction
+history, Lokey saves short excerpts from applied corrections, including corrections
+made in the keyboard check. The history stays on this iPhone and is excluded from
+device backups. You can pause saving or clear the history in the app.
 
 The main app downloads AI model files from Hugging Face. The download provider
 receives normal connection information, such as your IP address. Typed text is
@@ -16,7 +18,7 @@ are subject to those sites' policies.
 
 Settings, downloaded models, and basic keyboard status stay in local storage shared
 by the app and its keyboard. Full Access is optional. It lets the keyboard write
-status and diagnostics for the main app. Basic typing works without it. Lokey does
+status and corrections you choose to keep for the main app. Basic typing works without it. Lokey does
 not use this permission to upload text.
 
 Local system diagnostics can contain model names, request timings, and memory use.

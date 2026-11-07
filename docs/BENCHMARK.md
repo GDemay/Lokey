@@ -257,3 +257,41 @@ Local evidence (ignored build artifacts):
 
 App Store submission and broader TestFlight checks on older devices and common
 host apps remain open. Full Access off was checked for typing, not model inference.
+
+## 2026-11-07 — Apple Intelligence for Fix
+
+Release build 4, iPhone 17 Pro, iOS 26.6.1. The Apple model runs on the device.
+The 64 messages in `eval/apple_fix_style_cases.jsonl` include 20 messages with
+errors and 12 already-correct messages per language. A pass requires the
+expected wording, casing, and punctuation, with straight and curly apostrophes
+treated alike. The test app runs the same Swift Fix pipeline as the keyboard.
+
+| Apple Fix | French with errors | English with errors | Already correct, unchanged | Median / p90 |
+|---|---:|---:|---:|---:|
+| Initial Apple prompt | 6/20 | 6/20 | 13/24 | 473 / 527 ms |
+| Build 4 prompt and style preservation | 17/20 | 16/20 | 23/24 | 610 / 692 ms |
+
+Build 4 still missed the subjunctive in `Il faut absolument que je vends des cartes`.
+In one already-correct English message it expanded contractions. In a longer
+French message it inserted a formal negation. The real keyboard UI test checks
+the setting, the Apple Intelligence label, and Fix → Apply in both languages
+with `Je peut pas venir` and `We was gonna go`.
+
+The keyboard reported a peak of 98.4 MiB after the Apple Fix UI test, with
+LFM3 also loaded for automatic corrections. A prior LFM3-only status on this
+iPhone reported 82.1 MiB. These are process peaks from different sessions.
+
+Build 5 retries with the installed model when Apple declines a Fix. The real
+keyboard test reproduced an Apple refusal with a synthetic sentence and
+confirmed that the preview named LFM3 1.7B before Apply. The result appeared
+after 5.36 s, including the Apple attempt and the local retry.
+
+## 2026-11-07 — Qwen memory check on iPhone
+
+The same test app on iPhone 17 Pro ran LFM3 1.7B and Qwen3.5 2B Q4_K_M
+in separate processes with Lokey's keyboard inference settings. Both used
+the CPU with thinking disabled. Qwen peaked at 157.9 MiB and LFM3 at 85.9 MiB.
+The test started at 9.1 MiB for each model and covered the same six short
+French and English messages. This measures the model inside a test app.
+The keyboard extension adds its own UI and runs under a separate memory limit.
+Qwen remains outside the downloadable keyboard catalog.

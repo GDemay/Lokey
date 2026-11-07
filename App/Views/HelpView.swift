@@ -10,6 +10,7 @@ struct PrivacyView: View {
             }
             Section("What stays on your phone") {
                 Text("The keyboard reads nearby text to suggest and apply edits. Your settings, downloaded models, and basic keyboard status stay in shared storage on this iPhone.")
+                Text("If you turn on Correction history, Lokey saves short excerpts from applied corrections on this iPhone. You can pause saving or clear the history in the app.")
                 Text("System diagnostics can include model names, timings, and memory use. Lokey does not log what you type.")
             }
             Section("What uses the internet") {
@@ -17,7 +18,7 @@ struct PrivacyView: View {
                 Text("The keyboard makes no internet requests. Lokey has no accounts, advertising, analytics, or tracking.")
             }
             Section("Full Access is your choice") {
-                Text("Apple shows the same broad warning for all keyboards that request Full Access. In Lokey, it lets the keyboard save status and diagnostics for this app. Basic typing remains available without it.")
+                Text("Apple shows the same broad warning for all keyboards that request Full Access. In Lokey, it lets the keyboard save status and any corrections you choose to keep. Basic typing remains available without it.")
             }
             Section("You stay in control") {
                 Text("Remove model files in Models. Turn off automatic correction in Settings. Remove Lokey in iPhone Settings → General → Keyboard → Keyboards. Deleting Lokey removes its local app data.")

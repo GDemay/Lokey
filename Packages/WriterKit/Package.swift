@@ -29,6 +29,8 @@ var targets: [Target] = [
 #if !os(Linux)
 products.append(.library(name: "KeyboardUI", targets: ["KeyboardUI"]))
 targets.append(.target(name: "KeyboardUI", dependencies: ["WritingCore"]))
+products.append(.library(name: "AppleRuntime", targets: ["AppleRuntime"]))
+targets.append(.target(name: "AppleRuntime", dependencies: ["WritingCore"]))
 #endif
 
 let package = Package(

@@ -1,0 +1,3 @@
+{"id":"en-translation-01","cat":"short","input":"Tu peut venir demain","accept":["Can you come tomorrow?","Can you come tomorrow","You can come tomorrow."]}
+{"id":"en-translation-02","cat":"multi-sentence","input":"Je suis dans le train. J'arrive dans dix minutes.","accept":["I'm on the train. I'll be there in ten minutes.","I'm on the train. I'll be there in 10 minutes.","I'm on the train. I'll arrive in ten minutes.","I'm on the train. I'll arrive in 10 minutes."]}
+{"id":"en-translation-03","cat":"chat","input":"De rien, à demain !","accept":["You're welcome, see you tomorrow!","You're welcome. See you tomorrow!","That's okay, see you tomorrow!","No problem, see you tomorrow!"]}

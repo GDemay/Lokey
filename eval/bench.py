@@ -33,7 +33,7 @@ def load_prompts(path):
 
 def correction_language(text):
     tokens = set(words(text))
-    french = set("je jai jétais tu il elle nous vous ils elles les des une dans pour avec pas est suis sont bonjour merci français francais ça cest était demain hier peux peut veux".split())
+    french = set("je jai jétais tu il elle nous vous ils elles les des une dans pour avec comme pas est suis sont bonjour merci français francais ça cest sest était demain hier peux peut veux".split())
     english = set("i im you he she we they the this that is are have has dont doesnt will would what how please thanks your my its their".split())
     fr_score = len(tokens & french) * 3 + len(tokens & set("le la de du se ne au".split()))
     en_score = len(tokens & english) * 3
@@ -78,6 +78,61 @@ def clean_output(prompts, fmt, text):
     if text.startswith("<text>") and text.endswith("</text>"):
         text = text[len("<text>"):-len("</text>")].strip()
     return text
+
+
+def preserve_ending(source, output):
+    """Keep the user's terminal punctuation, mirroring TextChunker.preserveEnding."""
+    def split(text):
+        body = text.rstrip(".!?…")
+        if body == text:
+            return text, ""
+        while body and body[-1].isspace() and body[-1] not in "\n\r\v\f\x85\u2028\u2029":
+            body = body[:-1]
+        return body, text[len(body):]
+
+    return split(output)[0] + split(source)[1] if output else output
+
+
+FRENCH_NEGATION = re.compile(
+    r"\A(je|tu|il|elle|on|nous|vous|ils|elles)([ \t]+)(ne[ \t]+|n['’])?[^\W\d_]+[ \t]+pas\b",
+    re.IGNORECASE,
+)
+
+
+def preserve_apostrophes(source, output):
+    """Match words as TextDiff does and keep the user's original apostrophe glyphs."""
+    if not (("’" in source and "'" in output) or ("'" in source and "’" in output)):
+        return output
+    token = re.compile(r"(?:[^\W_]|['’])+|[\s\S]")
+    old, new = token.findall(source), token.findall(output)
+    a, b = [[word.replace("’", "'") for word in tokens] for tokens in (old, new)]
+    lcs = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) - 1, -1, -1):
+        for j in range(len(b) - 1, -1, -1):
+            lcs[i][j] = 1 + lcs[i + 1][j + 1] if a[i] == b[j] else max(lcs[i + 1][j], lcs[i][j + 1])
+    i = j = 0
+    kept = []
+    while i < len(a) and j < len(b):
+        if a[i] == b[j]:
+            kept.append(old[i])
+            i, j = i + 1, j + 1
+        elif lcs[i + 1][j] >= lcs[i][j + 1]:
+            i += 1
+        else:
+            kept.append(new[j])
+            j += 1
+    return "".join(kept + new[j:])
+
+
+def preserve_fix_style(source, output):
+    output = preserve_ending(source, output)
+    original, edit = FRENCH_NEGATION.match(source), FRENCH_NEGATION.match(output)
+    if (original and edit and not original[3] and edit[3]
+            and original[1].lower() == edit[1].lower()):
+        if not edit[3][-1].isspace():
+            return source
+        output = original[1] + edit[2] + output[edit.end(3):]
+    return preserve_apostrophes(source, output)
 
 
 def osa_distance(a, b):
@@ -258,8 +313,9 @@ class Runner:
             out.append(chunk["choices"][0]["text"])
             n += 1
         total = time.time() - t0
+        output = clean_output(self.prompts, self.fmt, "".join(out))
         return {
-            "output": clean_output(self.prompts, self.fmt, "".join(out)),
+            "output": preserve_fix_style(text, output) if action == "fix" else output,
             "raw": "".join(out),
             "prompt_tokens": len(ids),
             "gen_tokens": n,
@@ -292,8 +348,9 @@ class ServerRunner:
         })
         total = time.time() - t0
         t = res.get("timings", {})
+        output = clean_output(self.prompts, self.fmt, res["content"])
         return {
-            "output": clean_output(self.prompts, self.fmt, res["content"]),
+            "output": preserve_fix_style(text, output) if action == "fix" else output,
             "raw": res["content"],
             "prompt_tokens": res.get("tokens_evaluated", 0),
             "gen_tokens": t.get("predicted_n", 0),
@@ -336,7 +393,7 @@ def main():
         ok, reason = guard(prompts, args.action, c["input"], res["output"])
         # What the user sees: a rejected output means "no suggestion" (text stays as typed).
         shown = res["output"] if ok else c["input"]
-        accept = [norm(a) for a in c["accept"]]
+        accept = [norm(preserve_ending(c["input"], a) if args.action == "fix" else a) for a in c["accept"]]
         out = norm(res["output"])
         strict = out in accept
         lenient = strict or out.rstrip(".") in [a.rstrip(".") for a in accept]

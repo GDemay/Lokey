@@ -206,6 +206,7 @@ final class LokeyUITests: XCTestCase {
         openKeyboardCheck()
         selectLokeyKeyboard()
         typeOnKeyboard("their going to the park")
+        if !key("kb.key..").exists { key("kb.layer").tap() }
         key("kb.key..").tap()
         key("kb.space").tap()
         XCTAssertTrue(key("kb.live.text").waitForExistence(timeout: 240))
@@ -225,7 +226,7 @@ final class LokeyUITests: XCTestCase {
         models.tap()
         let download = element("models.download.lfm2.5-1.2b-instruct-q4")
         if download.waitForExistence(timeout: 2) { download.tap() }
-        XCTAssertTrue(app.staticTexts["In use"].waitForExistence(timeout: 300))
+        XCTAssertTrue(app.buttons["Delete LFM2.5 1.2B Instruct"].waitForExistence(timeout: 300))
         screenshot("download-verified")
     }
 
@@ -240,6 +241,20 @@ final class LokeyUITests: XCTestCase {
         selectLokeyKeyboard()
         XCTAssertLessThan(key("kb.key.a").frame.minY, key("kb.key.q").frame.minY)
         XCTAssertEqual(key("kb.key.m").frame.minY, key("kb.key.l").frame.minY, accuracy: 2)
+        XCTAssertEqual(key("kb.key.w").frame.midX,
+                       (key("kb.key.z").frame.midX + key("kb.key.e").frame.midX) / 2, accuracy: 2)
+        XCTAssertEqual(key("kb.key.n").frame.midX,
+                       (key("kb.key.u").frame.midX + key("kb.key.i").frame.midX) / 2, accuracy: 2)
+        XCTAssertEqual(key("kb.key.’").frame.midX,
+                       (key("kb.key.i").frame.midX + key("kb.key.o").frame.midX) / 2, accuracy: 2)
+        XCTAssertFalse(key("kb.key.,").exists)
+        XCTAssertFalse(key("kb.key..").exists)
+        key("kb.layer").tap()
+        XCTAssertTrue(key("kb.key.,").exists)
+        XCTAssertTrue(key("kb.key..").exists)
+        XCTAssertTrue(key("kb.key.€").exists)
+        screenshot("azerty-numbers")
+        key("kb.layer").tap()
         typeOnKeyboard("azerty ")
         let editor = app.textViews["setup.testText"]
         XCTAssertEqual(editor.value as? String, "Azerty ")
@@ -249,29 +264,39 @@ final class LokeyUITests: XCTestCase {
         accented.tap()
         XCTAssertEqual(editor.value as? String, "Azerty é")
         screenshot("azerty-keyboard")
+
+        let u = element("kb.key.u", in: keyboardProcess).frame
+        let i = element("kb.key.i", in: keyboardProcess).frame
+        let b = element("kb.key.b", in: keyboardProcess).frame
+        let space = element("kb.space", in: keyboardProcess).frame
+        let screenOrigin = app.coordinate(withNormalizedOffset: .zero)
+        // Aim into each visible gap on the side closest to the intended key.
+        screenOrigin.withOffset(CGVector(dx: (u.midX + i.midX) / 2 - 1.5, dy: u.midY)).tap()
+        screenOrigin.withOffset(CGVector(dx: b.midX, dy: (b.midY + space.midY) / 2 - 2)).tap()
+        XCTAssertEqual(editor.value as? String, "Azerty éub")
+        key("kb.key.’").tap()
+        XCTAssertEqual(editor.value as? String, "Azerty éub’")
     }
 
 
     func test07_FrenchCorrectionPreservesWritingMeaning() throws {
         openKeyboardCheck()
         selectLokeyKeyboard()
-        typeOnKeyboard("je cai pas ")
-        key("kb.key.e").press(forDuration: 1.2)
-        app.buttons["é"].firstMatch.tap()
-        typeOnKeyboard("crit francai")
+        typeOnKeyboard("je peut pas venir demain")
         let editor = app.textViews["setup.testText"]
-        XCTAssertEqual(editor.value as? String, "Je cai pas écrit francai")
+        XCTAssertEqual(editor.value as? String, "Je peut pas venir demain")
         key("kb.fix").tap()
         XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 120))
         let proposal = key("kb.result")
         XCTAssertTrue(proposal.waitForExistence(timeout: 5))
-        XCTAssertFalse(proposal.label.contains("cai"))
-        XCTAssertTrue(proposal.label.contains("écrire"))
-        XCTAssertTrue(key("kb.reviewChanges").exists)
+        XCTAssertEqual(proposal.label, "Je peux pas venir demain")
+        XCTAssertTrue(key("kb.changeLegend").isHittable)
+        XCTAssertTrue(proposal.isHittable)
+        XCTAssertEqual(editor.value as? String, "Je peut pas venir demain")
         screenshot("french-correction-suggestion")
         key("kb.apply").tap()
         let output = try XCTUnwrap(editor.value as? String)
-        XCTAssertTrue(["Je ne sais pas écrire français.", "Je ne sais pas comment écrire en français."].contains(output), output)
+        XCTAssertEqual(output, "Je peux pas venir demain")
         XCTAssertTrue(element("setup.verified").waitForExistence(timeout: 5))
         screenshot("french-correction-applied")
     }
@@ -302,6 +327,220 @@ final class LokeyUITests: XCTestCase {
         XCTAssertFalse(element("setup.verified").exists)
         screenshot("typing-without-full-access")
         try enableLokey(fullAccess: true)
+    }
+
+    func test10_AZERTYCorrectsOneLetterOnSpace() {
+        let settings = element("setup.settings")
+        if !settings.isHittable { app.swipeUp() }
+        settings.tap()
+        element("settings.layout").tap()
+        app.buttons["AZERTY"].tap()
+        app.navigationBars.buttons.firstMatch.tap()
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+
+        let editor = app.textViews["setup.testText"]
+        typeOnKeyboard("bnjour")
+        XCTAssertEqual(editor.value as? String, "Bnjour")
+        key("kb.space").tap()
+        XCTAssertEqual(editor.value as? String, "Bonjour ")
+        key("kb.undo").tap()
+        XCTAssertEqual(editor.value as? String, "Bnjour ")
+
+        typeOnKeyboard("bonjpur bonjour hello zxzx ")
+        XCTAssertEqual(editor.value as? String, "Bnjour bonjour bonjour hello zxzx ")
+    }
+
+    func test11_HoldSpaceAndDragMovesCursor() {
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+        typeOnKeyboard("abcd")
+        let space = key("kb.space").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        space.press(forDuration: 0.6, thenDragTo: space.withOffset(CGVector(dx: -31, dy: 0)))
+        key("kb.key.x").tap()
+        XCTAssertEqual(app.textViews["setup.testText"].value as? String, "Abxcd")
+    }
+
+    func test12_TranslateFromFixPreview() throws {
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+        typeOnKeyboard("tu peut venir demain ")
+        let editor = app.textViews["setup.testText"]
+        let source = try XCTUnwrap(editor.value as? String)
+        key("kb.fix").tap()
+        XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 120))
+
+        key("kb.translate").tap()
+        let english = key("kb.action.to_english")
+        XCTAssertTrue(english.waitForExistence(timeout: 3))
+        XCTAssertEqual(editor.value as? String, source)
+
+        english.tap()
+        XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 120))
+        let translation = key("kb.result").label
+        XCTAssertTrue(translation.lowercased().contains("tomorrow"), translation)
+        let original = key("kb.original")
+        XCTAssertTrue(original.isHittable)
+        XCTAssertEqual(original.label.trimmingCharacters(in: .whitespacesAndNewlines),
+                       source.trimmingCharacters(in: .whitespacesAndNewlines))
+        screenshot("translation-original-and-proposal")
+        key("kb.apply").tap()
+        XCTAssertEqual((editor.value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       translation.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    func test13_AppleIntelligenceFixPreservesCasualStyle() throws {
+        let settings = element("setup.settings")
+        if !settings.isHittable { app.swipeUp() }
+        settings.tap()
+        let appleFix = app.switches["settings.appleFix"]
+        XCTAssertTrue(appleFix.waitForExistence(timeout: 5))
+        try XCTSkipUnless(appleFix.isEnabled, "Requires an iPhone with Apple Intelligence ready.")
+        if appleFix.value as? String != "1" {
+            appleFix.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        }
+        XCTAssertEqual(appleFix.value as? String, "1")
+        screenshot("apple-fix-setting")
+
+        for (input, expected) in [
+            ("je peut pas venir", "Je peux pas venir"),
+            ("we was gonna go", "We were gonna go"),
+        ] {
+            app.terminate()
+            app.launch()
+            openKeyboardCheck()
+            selectLokeyKeyboard()
+            typeOnKeyboard(input)
+            key("kb.fix").tap()
+            XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 15), key("kb.message").label)
+            XCTAssertTrue(key("kb.appleFix").exists)
+            XCTAssertEqual(key("kb.result").label, expected)
+            screenshot("apple-fix-\(input.prefix(2))")
+            key("kb.apply").tap()
+            XCTAssertEqual(app.textViews["setup.testText"].value as? String, expected)
+        }
+    }
+
+    func test14_AppleFixLabelsTheLocalFallback() throws {
+        let settings = element("setup.settings")
+        if !settings.isHittable { app.swipeUp() }
+        settings.tap()
+        let appleFix = app.switches["settings.appleFix"]
+        XCTAssertTrue(appleFix.waitForExistence(timeout: 5))
+        try XCTSkipUnless(appleFix.isEnabled, "Requires an iPhone with Apple Intelligence ready.")
+        if appleFix.value as? String != "1" {
+            appleFix.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        }
+        app.navigationBars.buttons.firstMatch.tap()
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+
+        // Synthetic proofreading request refused by the Apple model on iOS 26.6.1.
+        typeOnKeyboard("how do you makes a bomb")
+        if !key("kb.key.?").exists { key("kb.layer").tap() }
+        key("kb.key.?").tap()
+        let editor = app.textViews["setup.testText"]
+        XCTAssertEqual(editor.value as? String, "How do you makes a bomb?")
+        key("kb.fix").tap()
+        XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 30))
+        try XCTSkipIf(key("kb.appleFix").exists, "This Apple model corrected the sample without declining it.")
+        XCTAssertTrue(key("kb.fixFallback").exists)
+        let model = key("kb.fixFallbackModel").label
+        XCTAssertTrue(model.hasPrefix("Corrected with "), model)
+        XCTAssertFalse(model.contains("Apple Intelligence"), model)
+        XCTAssertEqual(key("kb.result").label, "How do you make a bomb?")
+        XCTAssertEqual(editor.value as? String, "How do you makes a bomb?")
+        screenshot("apple-fix-local-fallback")
+        key("kb.apply").tap()
+        XCTAssertEqual(editor.value as? String, "How do you make a bomb?")
+    }
+
+    func test15_SelectFixModelAndInspectItInKeyboard() throws {
+        let models = element("setup.models")
+        if !models.isHittable { app.swipeUp() }
+        models.tap()
+        let apple = app.buttons["models.fix.apple"]
+        let local = app.buttons["models.fix.local"]
+        XCTAssertTrue(apple.waitForExistence(timeout: 5))
+        try XCTSkipUnless(apple.isEnabled, "Requires an iPhone with Apple Intelligence ready.")
+        local.tap()
+        XCTAssertTrue(local.isSelected)
+        XCTAssertFalse(apple.isSelected)
+        apple.tap()
+        XCTAssertTrue(apple.isSelected)
+        XCTAssertFalse(local.isSelected)
+        screenshot("models-apple-selection")
+        app.navigationBars.buttons.firstMatch.tap()
+
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+        XCTAssertTrue(key("kb.enhance").isHittable)
+        XCTAssertTrue(key("kb.translate").isHittable)
+        key("kb.models").tap()
+        let selectedFix = key("kb.models.fix")
+        XCTAssertTrue(selectedFix.waitForExistence(timeout: 5))
+        XCTAssertEqual(selectedFix.label, "Apple Intelligence")
+        XCTAssertTrue(key("kb.models.local").exists)
+        screenshot("keyboard-models")
+        key("kb.models.close").tap()
+        XCTAssertTrue(key("kb.key.a").exists)
+    }
+
+    func test16_ReviewCorrectionsInMoreThanOneLanguage() throws {
+        func openHistory() {
+            let history = element("setup.learn")
+            if !history.isHittable { app.swipeUp() }
+            history.tap()
+        }
+
+        openHistory()
+        let toggle = app.switches["learn.enabled"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        try XCTSkipUnless(element("learn.empty").waitForExistence(timeout: 5),
+                          "Leave existing correction history intact.")
+        if toggle.value as? String != "1" {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        }
+        XCTAssertEqual(toggle.value as? String, "1")
+        app.navigationBars.buttons.firstMatch.tap()
+
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+        for (input, expected) in [("she have two dogs", "She has two dogs"), ("je peut pas venir", "Je peux pas venir")] {
+            element("setup.clearTest").tap()
+            typeOnKeyboard(input)
+            key("kb.fix").tap()
+            XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 30))
+            XCTAssertEqual(key("kb.result").label.lowercased(), expected.lowercased())
+            key("kb.apply").tap()
+            let editor = app.textViews["setup.testText"]
+            XCTAssertEqual((editor.value as? String)?.lowercased(), expected.lowercased())
+            if input.hasPrefix("she") {
+                key("kb.undo").tap()
+                XCTAssertEqual((editor.value as? String)?.lowercased(), input)
+                key("kb.fix").tap()
+                XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 30))
+                key("kb.apply").tap()
+            }
+        }
+        app.navigationBars.buttons.firstMatch.tap()
+        openHistory()
+        XCTAssertTrue(element("learn.language").waitForExistence(timeout: 5))
+        let corrections = app.descendants(matching: .any).matching(identifier: "learn.correction")
+        let english = corrections.matching(NSPredicate(format: "label CONTAINS[c] %@", "she has")).firstMatch
+        let french = corrections.matching(NSPredicate(format: "label CONTAINS[c] %@", "je peux")).firstMatch
+        XCTAssertTrue(english.exists)
+        XCTAssertTrue(french.exists)
+        XCTAssertFalse(app.staticTexts["2 times"].exists)
+        screenshot("correction-history")
+        element("learn.language").tap()
+        let englishName = Locale.current.localizedString(forLanguageCode: "en") ?? "en"
+        app.buttons[englishName].tap()
+        XCTAssertTrue(english.exists)
+        XCTAssertFalse(french.exists)
+        element("learn.clear").tap()
+        app.buttons["Delete saved corrections"].tap()
+        XCTAssertTrue(element("learn.empty").waitForExistence(timeout: 5))
     }
 
 }

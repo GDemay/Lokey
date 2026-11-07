@@ -44,12 +44,75 @@ final class AssistantTests: XCTestCase {
         XCTAssertEqual(result.rejectedChunks, 0)
     }
 
+    func testFixKeepsTheOriginalEnding() async throws {
+        let generator = ScriptedGenerator([
+            "Je peut pas venir": "je ne peux pas venir.",
+            "Je ne peut pas venir": "Je ne peux pas venir.",
+            "Je cai pas écrit francai": "Je n'ai pas écrit en français.",
+            "tu peut venir ?!": "tu peux venir?",
+            "on se voit demain": "on se voit demain.",
+        ])
+        let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
+        let plain = try await assistant.run(actionID: "fix", text: "Je peut pas venir")
+        let formal = try await assistant.run(actionID: "fix", text: "Je ne peut pas venir")
+        let ambiguous = try await assistant.run(actionID: "fix", text: "Je cai pas écrit francai")
+        let question = try await assistant.run(actionID: "fix", text: "tu peut venir ?!")
+        let alreadyCorrect = try await assistant.run(actionID: "fix", text: "on se voit demain")
+        XCTAssertEqual(plain.output, "Je peux pas venir")
+        XCTAssertEqual(formal.output, "Je ne peux pas venir")
+        XCTAssertFalse(ambiguous.hasChanges)
+        XCTAssertEqual(question.output, "tu peux venir ?!")
+        XCTAssertFalse(alreadyCorrect.hasChanges)
+    }
+
+    func testFixPreservesApostrophesInUnchangedWords() async throws {
+        let unchanged = "Je te l’annonce, j’ai le temps"
+        let mixed = "J’ai dit que c'est comme ca"
+        let generator = ScriptedGenerator([
+            unchanged: "Je te l'annonce, j'ai le temps",
+            mixed: "J'ai dit que c’est comme ça",
+            "I dont know": "I don't know",
+        ])
+        let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
+
+        let same = try await assistant.run(actionID: "fix", text: unchanged)
+        XCTAssertFalse(same.hasChanges)
+        let corrected = try await assistant.run(actionID: "fix", text: mixed)
+        XCTAssertEqual(corrected.output, "J’ai dit que c'est comme ça")
+        XCTAssertEqual(corrected.changes, ["ca → ça"])
+        let missing = try await assistant.run(actionID: "fix", text: "I dont know")
+        XCTAssertEqual(missing.output, "I don't know")
+    }
+
     func testEmptyTextDoesNotCallModel() async throws {
         let generator = ScriptedGenerator([:])
         let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
         let result = try await assistant.run(actionID: "fix", text: "   ")
         XCTAssertFalse(result.hasChanges)
         XCTAssertTrue(generator.prompts.isEmpty)
+    }
+
+    func testFixCanKeepCasualPhrasesWhileCorrectingNearbyErrors() async throws {
+        let english = "We was gonna go"
+        let french = "tu peut confirmer que t'es dispo stp"
+        let casual = "franchement t'as pas recu le colis"
+        let alreadyCorrect = "mdr t'as vu sa tête 😂"
+        let generator = ScriptedGenerator([
+            english: "We were going to go.",
+            french: "tu peux confirmer que t'es disponible s’il te plaît.",
+            casual: "Franchement, tu as pas reçu le colis.",
+            alreadyCorrect: "MDR, tu as vu sa tête 😂",
+        ])
+        let library = try PromptLibrary.bundled()
+        let assistant = WritingAssistant(library: library, generator: generator, preserveCasualWording: true)
+        let en = try await assistant.run(actionID: "fix", text: english)
+        let fr = try await assistant.run(actionID: "fix", text: french)
+        let casualResult = try await assistant.run(actionID: "fix", text: casual)
+        let noChange = try await assistant.run(actionID: "fix", text: alreadyCorrect)
+        XCTAssertEqual(en.output, "We were gonna go")
+        XCTAssertEqual(fr.output, "tu peux confirmer que t'es dispo stp")
+        XCTAssertEqual(casualResult.output, "franchement t'as pas reçu le colis")
+        XCTAssertFalse(noChange.hasChanges)
     }
 
     func testCatalogIsPinnedAndConsistent() throws {
@@ -73,6 +136,18 @@ final class AssistantTests: XCTestCase {
         XCTAssertEqual(settings.autocorrectMode, .suggest)
         XCTAssertTrue(settings.hapticFeedback)
         XCTAssertNil(settings.selectedModelID)
+        XCTAssertFalse(settings.useAppleIntelligenceForFix)
+    }
+
+    func testAppleFixPreferencePersistsSeparatelyFromDownloadedModel() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "test.\(UUID().uuidString)"))
+        let store = SettingsStore(defaults: defaults)
+        store.update {
+            $0.selectedModelID = "lfm3-1.7b-q4"
+            $0.useAppleIntelligenceForFix = true
+        }
+        XCTAssertTrue(store.load().useAppleIntelligenceForFix)
+        XCTAssertEqual(store.load().selectedModelID, "lfm3-1.7b-q4")
     }
 
     func testOldSettingsRequireNewSetupWithoutLosingPreferences() throws {
