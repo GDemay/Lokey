@@ -238,20 +238,22 @@ public final class KeyboardController: ObservableObject {
     // MARK: Spelling suggestions
 
     static func currentWord(in before: String) -> String {
-        String(before.reversed().prefix(while: { $0.isLetter || $0 == "'" }).reversed())
+        String(before.reversed().prefix(while: { $0.isLetter || $0 == "'" || $0 == "’" }).reversed())
     }
 
     private func updateSuggestions() {
         guard settings.spellingSuggestions else { suggestions = []; return }
         let word = Self.currentWord(in: document.documentContextBeforeInput ?? "")
         guard word.count >= 2 else { suggestions = []; return }
+        let context = String((document.documentContextBeforeInput ?? "").suffix(180))
+        let language = CorrectionLanguage.detect(in: context) == .french ? "fr_FR" : "en_US"
         let range = NSRange(location: 0, length: (word as NSString).length)
-        let misspelled = textChecker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0, wrap: false, language: "en_US")
+        let misspelled = textChecker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0, wrap: false, language: language)
         var result: [String]
         if misspelled.location != NSNotFound {
-            result = textChecker.guesses(forWordRange: range, in: word, language: "en_US") ?? []
+            result = textChecker.guesses(forWordRange: range, in: word, language: language) ?? []
         } else {
-            result = textChecker.completions(forPartialWordRange: range, in: word, language: "en_US") ?? []
+            result = textChecker.completions(forPartialWordRange: range, in: word, language: language) ?? []
             if !result.contains(word) { result.insert(word, at: 0) }
         }
         suggestions = Array(result.prefix(3))
@@ -284,7 +286,10 @@ public final class KeyboardController: ObservableObject {
                 assistant = loaded
                 loadTask = nil
                 engineStatus = .ready
-                Task { await loaded.prewarm() }
+                let context = document.documentContextBeforeInput ?? ""
+                let french = CorrectionLanguage.detect(in: context) == .french
+                    || (context.isEmpty && settings.keyboardLayout.resolved() == .azerty)
+                Task { await loaded.prewarm(actionID: french ? "fix_french" : "fix") }
             }
             return loaded
         } catch {
@@ -328,12 +333,16 @@ public final class KeyboardController: ObservableObject {
     }
 
     public func run(_ action: WritingAction) {
+        guard action.id != WritingAction.ask.id else {
+            phase = .message("This action is not available.")
+            return
+        }
         liveTask?.cancel()
         liveNotice = nil
         panel = .keys
         let target = currentTarget()
         guard !target.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            phase = .message(action.group == .ask ? "Type what you want to write, then tap Ask AI." : "Type something first.")
+            phase = .message("Type something first.")
             return
         }
         phase = .working(action: action, partial: "")

@@ -15,3 +15,5 @@ Packages/WriterKit/.swiftpm/
 eval/data/
 __pycache__/
 .venv/
+.asc/
+*.p8

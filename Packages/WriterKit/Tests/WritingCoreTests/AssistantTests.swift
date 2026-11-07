@@ -74,4 +74,26 @@ final class AssistantTests: XCTestCase {
         XCTAssertTrue(settings.hapticFeedback)
         XCTAssertNil(settings.selectedModelID)
     }
+
+    func testOldSettingsRequireNewSetupWithoutLosingPreferences() throws {
+        let old = Data(#"{"hasCompletedOnboarding":true,"hapticFeedback":false}"#.utf8)
+        let settings = try JSONDecoder().decode(AppSettings.self, from: old)
+        XCTAssertEqual(settings.setupVersion, 0)
+        XCTAssertEqual(settings.setupStep, 0)
+        XCTAssertFalse(settings.hapticFeedback)
+        XCTAssertNil(settings.keyboardCheckID)
+    }
+
+    func testKeyboardCheckRejectsStaleOrWrongModelStatus() throws {
+        let status = KeyboardStatus(lastSeen: Date(), hasFullAccess: true,
+                                    modelID: "current-model", checkID: "current-check")
+        XCTAssertTrue(status.verifies(checkID: "current-check", modelID: "current-model"))
+        XCTAssertFalse(status.verifies(checkID: "old-check", modelID: "current-model"))
+        XCTAssertFalse(status.verifies(checkID: "current-check", modelID: "other-model"))
+        XCTAssertFalse(status.verifies(checkID: "current-check", modelID: nil))
+        let old = Data(#"{"lastSeen":0,"hasFullAccess":true,"modelName":"old"}"#.utf8)
+        let decoded = try JSONDecoder().decode(KeyboardStatus.self, from: old)
+        XCTAssertFalse(decoded.verifies(checkID: "current-check", modelID: "current-model"))
+    }
+
 }

@@ -5,8 +5,8 @@ how to build and test it, what is verified, and what to do next.
 
 ## 1. What Lokey is
 
-Lokey is a **free, open-source iOS keyboard that fixes English with a local LLM**: grammar,
-spelling, punctuation, tone rewrites ("Enhance"), translation and "Ask AI", in any app. It is the
+Lokey is a **free, open-source iOS keyboard that fixes English and French with a local LLM**: grammar,
+spelling, punctuation, tone rewrites ("Enhance"), and translation, in any app. It is the
 open alternative to the paid cloud app *AiText* (see `docs/RESEARCH.md`), with three differences
 that are the product:
 
@@ -17,12 +17,17 @@ that are the product:
 
 Non-goals: cloud inference, analytics, accounts, anything that sends user text off the device.
 
+The containing app is for keyboard setup, model downloads, and settings. Do not
+add a standalone writing editor or an in-app imitation of the keyboard. The
+optional keyboard check is a normal text field using the selected iOS keyboard.
+The app does not run inference; the real keyboard extension does.
+
 ## 2. Architecture
 
 ```
 App/ (SwiftUI containing app)        Keyboard/ (UIInputViewController extension)
-  editor, keyboard preview,             hosts KeyboardUI, bridges UITextDocumentProxy,
-  model manager, settings, onboarding   loads the model (KeyboardEngine), reports status
+  setup, model downloads, settings,     hosts KeyboardUI, bridges UITextDocumentProxy,
+  native keyboard-check text field     loads the model (KeyboardEngine), reports status
         \___________________________________/
                         |
 Packages/WriterKit (Swift package)
@@ -108,6 +113,12 @@ Key files:
 
 Prerequisites: Xcode 26, `brew install xcodegen`, Python 3. The app requires **iOS 26+** (A13 or newer).
 
+For local development, use `scripts/run-simulator.sh` (also available through
+`Run Lokey.command` and the Codex **Run Lokey** action). It builds the app, checks
+the recommended model, and installs both into a reusable **Lokey Local** simulator.
+It keeps the simulator running so you can test edits after each rebuild. Requires
+`cmake` as well as `xcodegen`. Xcode 27 displays the simulator in Device Hub.
+
 ```sh
 scripts/bootstrap.sh      # builds llama.xcframework b12015 from source (arm64 device + Simulator + macOS, DotProd, no BLAS), ~8 min
 xcodegen generate         # creates Lokey.xcodeproj (not committed)
@@ -126,7 +137,7 @@ cd Packages/WriterKit && swift test                       # macOS: unit tests
 scripts/fetch-model.sh lfm2.5-350m-q4                     # downloads to .models/, SHA-256 checked
 LOKEY_TEST_MODEL=$PWD/.models/LFM2.5-350M-QAD-Q4_0.gguf \
 LOKEY_EVAL_CASES=$PWD/eval/keyboard_cases.jsonl \
-  swift test --package-path Packages/WriterKit            # + real-model integration tests and 70-case eval
+  swift test --package-path Packages/WriterKit            # + real-model integration tests and correction eval
 MODEL_FILE=.models/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf scripts/ci/ios-e2e.sh   # Simulator E2E + screenshots
 ```
 
@@ -171,7 +182,17 @@ Integration-test environment variables:
   - Runs only when prompts, the catalog or the harness change.
 - **Code signing:** CI signs ad hoc (`CODE_SIGN_IDENTITY=-`), which is enough for the Simulator.
 
-## 6. Status (2026-10-30)
+## 6. Status
+
+The 2026-11-01 app is setup-only. Its UI tests cover setup and model/settings
+navigation, the iPhone Settings shortcut, the real keyboard correcting
+`I has 2 kid` → `I have 2 kids.`, and automatic correction with Undo through
+`UITextDocumentProxy`. An iPhone 17 Pro running iOS 26.6.1 is connected. Its Release UI checks cover
+English Fix, automatic correction with Undo, AZERTY with accents, French Fix,
+and keyboard memory status. See the latest section in `docs/BENCHMARK.md`.
+
+The measurements below were recorded on 2026-10-30, before the standalone editor
+and keyboard preview were removed:
 
 Verified:
 - **Unit tests:** core unit + parity tests pass on Linux and macOS.
@@ -198,13 +219,17 @@ Verified:
   subsystem `com.gdemay.lokey`.
 
 Not verified / open:
-- **Physical iPhone:** whether the extension stays under 77 MB (Simulator Debug footprints run tens
-  of MB above device Release builds, so the 83 MB Simulator peak doesn't settle it; ~48 MB of it is
-  the keyboard UI), real latency, and App Group access without Full Access.
+- **Older physical iPhones and longer sessions:** the iPhone 17 Pro Release checks
+  now pass, with a 67.7 MB peak in the mixed-language test. Wider coverage remains.
+  The earlier Simulator Debug footprints run tens
+  of MB above device Release builds. Full Access off has been checked for typing,
+  not model inference.
 - **LFM3-1.7B (decided: optional, not the default):** 64.3% of the keyboard cases, 0 harmful, JFLEG
   GLEU 44.2, 1.66× slower than LFM2.5-1.2B (77.1%, 53.8) on the CI CPU. Its first CI eval (34%) was a
   harness bug, fixed (duplicated answers around `</think>`, `docs/BENCHMARK.md`).
-- **App Store:** not submitted. No developer account or signing team is configured.
+- **App Store:** not submitted for public review. App record 6829549183 exists.
+  Internal TestFlight, localized store metadata, and distribution signing are
+  configured. See `store/STATUS.md` for the current build and remaining work.
 
 ## 7. Next steps (prioritized)
 
@@ -242,8 +267,8 @@ Not verified / open:
    - Add a guard for pronoun/person changes ("We need" → "I need").
    - Grow `eval/keyboard_cases.jsonl` with every bug you fix.
 5. **Product.**
-   - App Store prep: team, App Group, privacy label "Data Not Collected", screenshots, review notes
-     explaining Full Access (or dropping it, see 1).
+   - App Store: follow `store/STATUS.md`; complete wider TestFlight coverage before
+     public review. Team, App Group, privacy, screenshots, and review notes are set.
    - Background model downloads.
    - An Apple Foundation Models engine option on iOS 26 devices with Apple Intelligence.
    - More languages, iPad layout.
@@ -258,3 +283,49 @@ Not verified / open:
 - Every behaviour change in correction or editing gets a test, and an eval case if it is about model output.
 - Measure before and after any performance or memory change and record the numbers in `docs/BENCHMARK.md`.
 - Never commit model weights, `.models/`, `Packages/WriterKit/Vendor/` or build products.
+
+
+## 9. Setup and French support (2026-11-01)
+
+- First launch uses a persisted four-step install flow, with optional model download
+  and Full Access, then a real keyboard check. `setupVersion` and `setupStep` keep
+  progress. Do not report an enabled keyboard from stale status: verification uses
+  a new `keyboardCheckID` echoed by the real extension, plus the loaded model ID.
+- Keyboard layout is Automatic, QWERTY, AZERTY, or QWERTZ. Automatic uses the device
+  language; this is not access to another keyboard's private layout settings.
+- English Fix keeps its original prompt. `CorrectionLanguage` routes French text to
+  `fix_french`. Keep its deterministic classifier and the Python harness in sync.
+  Changes need real-model English and French regression checks.
+- Fuzzy guard word matching folds accents. Do not weaken the similarity or retention
+  thresholds to make a case pass. Keep Swift/Python golden parity.
+- The main correction preview shows clean output; detailed changes are optional.
+- `Run on iPhone.command` / `scripts/run-device.sh` build and install a signed Release
+  app using the owner's default personal team. Environment overrides are documented
+  in README. Keep physical device selection separate from Device Hub's simulators.
+
+App Store uploads use explicit target-level `TARGETED_DEVICE_FAMILY = 1` on the
+app and keyboard. A project-level value alone is overridden by XcodeGen defaults
+and makes the portrait-only app fail iPad multitasking validation.
+
+## 10. Store automation and first release
+
+- Read `store/STATUS.md` and `store/CLI.md` before store work. On this Mac use `asc --profile lokey`
+  and app ID `6829549183`. The API key is saved in this Mac's Keychain; do not create
+  another key or app record just because a new chat has no credentials in its text.
+- The shared `apple-release` skill lives in the private `GDemay/apple-release-tools`
+  repo. It supports other apps and cloud agents. This repo's `.apple-release.json`
+  selects Lokey. In the cloud, inject the credential files described by the skill;
+  this Mac's Keychain is not available there. Keep Lokey's store text and helpers here.
+- `store/AGENT_BRIEF.md` is the short handoff for a new agent. Start with live,
+  read-only checks; a past status file is not proof of Apple's current state.
+- Use `python3 scripts/app-store.py` for status, listing checks, dry runs, listing
+  updates, screenshots, beta notes, and review notes. The source data lives in
+  `store/`; `build/store/` is generated and may include private review contacts.
+- Never commit private keys, API tokens, Apple web sessions, or private contact
+  exports. `.asc/`, `.p8`, `build/`, and `artifacts/` are ignored.
+- The owner chose to hide Ask AI for the first release. Its toolbar item is absent
+  and `KeyboardController.run` refuses the action. Keep the internal prompt and
+  benchmark coverage. Do not restore the feature without the owner's request and
+  a separate content-safeguard review. Edit-similarity guards are not content filters.
+- Keep the store release manual. Do not invite other testers or publish a public
+  beta link without a named request. No public App Store release has been approved.

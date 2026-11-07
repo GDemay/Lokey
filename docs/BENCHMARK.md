@@ -9,7 +9,8 @@ changes (`.github/workflows/eval.yml`).
 - Prompts and output guard: `Packages/WriterKit/Sources/WritingCore/Resources/prompts.json`
   (the file the app ships). Greedy decoding, Q4_0 QAD weights.
 - Hardware: 4-thread x86-64 Linux VM (not an iPhone; use these for relative comparison).
-- **Keyboard cases**: `eval/keyboard_cases.jsonl`, 70 cases in 10 categories. A case counts as
+- **Keyboard cases**: `eval/keyboard_cases.jsonl`, originally 70 cases in 10 categories;
+  two short agreement cases were added on 2026-11-01. A case counts as
   correct if what the user would see (the model output, or the original text if the guard rejected
   the output) matches an accepted answer. "Harmful" = the user would see an edit that is neither an
   accepted answer nor close to their own text.
@@ -175,3 +176,84 @@ recover some cases; they would need their own eval run.
 - ESL constructions ("I have 25 years old", "We discussed about") are the weakest category (56% for 1.2B).
 - Rare meaning changes the guard cannot detect: "We need to seperate…" → "I need to separate…" (1.2B).
 - The 230M model is not useful for grammar, only capitalization and simple typos.
+
+## Short grammar corrections (local check, 2026-11-01)
+
+The model returned `I have 2 kids.` for `I has 2 kid`, but the output guard rejected
+it. The retention check counts source words of three or more letters: only `has`
+and `kid` in this case. It recognized `kid` → `kids`, but not `has` → `have`, so
+retention was 0.5, below the 0.6 threshold.
+
+The Swift and Python checks now recognize same-tense subject agreement forms:
+`am/is/are`, `was/were`, `has/have`, and `do/does`. The threshold is unchanged.
+The example's retention is now 1.0. Every decision on the 152 existing guard
+examples stays unchanged; seven new examples cover agreement and rejected changes
+to tense or content.
+
+On this Mac, LFM2.5-1.2B passes both added cases (`I has 2 kid`, `He have a dog.`).
+The expanded set scores 56/72 (77.8%), with zero harmful edits under the metric
+above, a 191 ms mean and a 244 ms p90. This does not imply perfect corrections or
+detect every meaning change. The full 34 core/model tests pass. The initial
+Simulator checks covered the old editor and keyboard preview. The setup-only app
+now checks the same sentence through the real system keyboard, including applying
+the correction and automatic correction with Undo.
+
+## Setup-only app (2026-11-01)
+
+The containing app now handles keyboard setup, model downloads, and settings.
+It no longer creates an inference engine or embeds a keyboard preview. Its
+optional check screen is a native text field using the selected iOS keyboard.
+
+On the iPhone 18 Pro simulator (iOS 27.0, Debug build), the idle setup app has a
+24 MB physical footprint and a 25 MB peak, measured with `footprint`. The old
+app's in-app correction workflow logged about 788 MB after loading and repacking
+the model. These are different workflows: inference now runs only in the keyboard
+extension. This does not establish the keyboard's memory use on a physical phone.
+
+## 2026-11-01 — guided setup, French, and physical iPhone
+
+Xcode 27.2; iPhone 17 Pro, iOS 26.6.1; Release build; LFM2.5 1.2B Q4_0,
+CPU-only keyboard profile. The real keyboard passed these device UI tests:
+
+- Guided setup, return from an unfinished step, finish, and relaunch.
+- Recommended model present and selected.
+- `I has 2 kid` → `I have 2 kids.` through Fix and Apply.
+- Automatic English correction and Undo.
+- AZERTY key positions, normal typing, and long-press `é`.
+- `Je cai pas écrit francai` → `Je ne sais pas comment écrire en français.`
+  through Fix and Apply, with a clean correction preview.
+- Basic typing with Full Access off, then restoring the permission.
+- Keyboard status and recorded memory peak below the 77 MB test threshold.
+
+The first mixed English/French device run recorded a peak of **67.7 MB**. A later
+French-only run with the French prompt prewarmed recorded **56.9 MB**. These are
+different workloads; the lower number is not a measured memory saving. The French
+Fix shown in the first run took **4.23 s**, including a cold French prompt. With
+French prewarming for an empty AZERTY field, the same UI check showed **0.45 s**.
+These are single device samples, not a latency distribution or a guarantee.
+
+The macOS regression set has 80 cases: **56/72 English**, unchanged, and **8/8 French**.
+The final full core/model run passed 40 tests; the added French prewarm test also
+passed separately (41 tests in total). Mean eval request time was 293 ms and p90
+318 ms in that full run. The existing harmful-edit proxy found zero harmful edits.
+It compares similarity and accepted references; it does not prove semantic safety.
+Eight French cases are a small regression set, not general French accuracy.
+
+The English prompt stays unchanged. French input uses a separate prompt selected
+from function words in the sentence; mixed or very short text can be ambiguous.
+Accent folding applies only to fuzzy word comparisons in the guard, so `cle` →
+`clés` does not look like leaked example text. Thresholds stay unchanged. Swift
+and Python agree on 30 rendered prompts and 167 guard pairs. All 159 previous
+guard verdicts are unchanged.
+
+Local evidence (ignored build artifacts):
+
+- `artifacts/local/iPhoneFinalOnboarding.xcresult`
+- `artifacts/local/iPhoneKeyboard.xcresult`
+- `artifacts/local/iPhoneFrenchPreview.xcresult`
+- `artifacts/local/AZERTYSetup.xcresult` (simulator)
+- `artifacts/local/french-final-eval.json`
+- `artifacts/release/screenshots/` (five real iPhone images, 1206 × 2622, no alpha)
+
+App Store submission and broader TestFlight checks on older devices and common
+host apps remain open. Full Access off was checked for typing, not model inference.

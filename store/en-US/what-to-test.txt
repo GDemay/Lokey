@@ -1,0 +1,11 @@
+Please check keyboard setup, everyday typing, English and French corrections, and stability in your usual apps.
+
+1. Follow the setup guide. Download the recommended model over Wi-Fi.
+2. Add Lokey in iPhone Settings, then choose it with the globe key. Full Access is optional.
+3. Type “I has 2 kid”, tap Fix, review the correction, and tap Apply.
+4. With AZERTY selected, try “Je cai pas écrit francai”. Check that the correction keeps the meaning of not knowing how to write French.
+5. Finish a sentence with an error, then try Automatic and Undo.
+6. Hold a letter for accents. Test switching keyboards and basic typing without Full Access.
+7. Try Notes and your usual messaging apps. Report slow corrections, unexpected changes, or the keyboard closing.
+
+AI can miss errors. Review changes before sending. Do not include private text in feedback.

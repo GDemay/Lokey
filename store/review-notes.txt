@@ -1,0 +1,14 @@
+Lokey is a free iPhone keyboard. No account or login is needed.
+
+1. Open Lokey and follow its guided setup.
+2. Download the recommended AI model (about 696 MB). Keep the app open until it finishes. The model is not bundled in the app.
+3. Add Lokey in Settings > General > Keyboard > Keyboards > Add New Keyboard. Return to Lokey and choose it with the globe key in the keyboard check.
+4. Type "I has 2 kid", tap Fix, then Apply. For French, try "Je cai pas écrit francai". The correction means "Je ne sais pas écrire français."
+
+The keyboard runs inference locally with llama.cpp. There is no inference server. After the model download, corrections work offline. The model download is from Hugging Face; model weights are data, not executable code. Models are by Liquid AI under the LFM Open License v1.0. The Models page links to the license.
+
+Full Access is optional. Basic typing works without it. Full Access lets the extension write setup and memory status to its shared app container. It is not used to upload typed text. The app has no ads, analytics, tracking, payments, or subscriptions.
+
+The keyboard supports QWERTY, AZERTY, and QWERTZ. Long-press letters for accents. English and French correction are supported. The app interface is currently English. AI suggestions can be wrong. Users can review and apply suggestions, or undo automatic correction.
+
+Build 3 has no free-form Ask AI tool. The available tools correct, rewrite, or translate the user's existing text. There is no content feed, web browser, or communication between users inside Lokey.

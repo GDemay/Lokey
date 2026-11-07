@@ -1,13 +1,37 @@
 # Lokey
 
-**A free, open-source iOS keyboard that fixes your English with a local LLM.**
-Grammar, spelling and punctuation fixes, tone rewrites, translation and "Ask AI",
+**A free, open-source iOS keyboard that fixes English and French with a local LLM.**
+Grammar, spelling and punctuation fixes, tone rewrites, and translation,
 in any app, entirely on the iPhone: no servers, no account, no ads, no subscription.
 It also **corrects each sentence as you type**, which the paid cloud apps in this
 category (e.g. AiText) don't do.
 
-> Status: prototype. CI builds the app and keyboard extension and runs end-to-end tests on
-> the iOS Simulator with a real on-device model (`.github/workflows/ios.yml`). Not on the App Store.
+> Status: release candidate. Guided setup, AZERTY, and real keyboard corrections have
+> been tested locally on an iPhone 17 Pro. TestFlight is set up for the owner's
+> account. The public App Store release has not been submitted.
+> See [release preparation](docs/APP_STORE.md) for the remaining submission steps.
+
+## Use Lokey as your keyboard
+
+The app handles setup and settings. Type and correct text in your usual apps
+with the Lokey keyboard. There is no separate writing app or keyboard preview.
+
+1. Open Lokey and follow the four setup steps. Choose a layout and download the
+   recommended model once over Wi-Fi.
+2. Tap **Open iPhone Settings**, go back to the main list, then choose
+   **General → Keyboard → Keyboards → Add New Keyboard → Lokey**.
+   **Allow Full Access** is optional.
+3. Open a text field in an app, hold the globe key, and choose **Lokey**.
+
+To put Lokey first, open **Settings → General → Keyboard → Keyboards**, tap
+**Edit**, and drag Lokey to the top. **Check your keyboard** in Lokey opens a
+normal text field that uses the real iOS keyboard.
+
+Allow Full Access lets the keyboard save setup status and diagnostics for the app. Text is processed
+locally, and the keyboard makes no network requests. iOS uses its own keyboard
+for passwords and phone-number fields; apps may also block custom keyboards.
+See Apple's [keyboard setup steps](https://support.apple.com/en-euro/guide/iphone/iph73b71eb/ios)
+and [custom keyboard limits](https://developer.apple.com/documentation/uikit/configuring-a-custom-keyboard-interface).
 
 ## Features
 
@@ -15,7 +39,7 @@ category (e.g. AiText) don't do.
 |---|---|---|
 | Fix grammar, spelling, punctuation, capitalization | ✅ one tap, word-level diff | ✅ "Fix mistakes" |
 | Rewrite / tones | ✅ Rephrase, Professional, Friendly, Casual, Confident, Persuasive, Shorter, Longer, Emojify | ✅ "Enhance" (7 tones) |
-| Ask AI (write from a request) | ✅ | ✅ |
+| Ask AI (write from a request) | Hidden for first release | ✅ |
 | Translate | ✅ to English / French / Spanish / German | via output language |
 | **Autocorrect as you type** | ✅ each finished sentence; auto-apply small fixes with Undo, or suggest | ❌ |
 | Works offline / text never leaves the phone | ✅ llama.cpp on-device | ❌ OpenAI via their servers |
@@ -37,16 +61,17 @@ Keyboard extension (UIInputViewController + SwiftUI)
 - **Fits in a keyboard** (iOS kills keyboards above 77 MB): weights are memory-mapped (clean
   pages, not counted), llama.cpp runs CPU-only with a q8_0 KV cache and small buffers, adding
   ~32 MB for the 1.2B model on Apple Silicon (`testKeyboardMemoryFootprint`). The keyboard logs its own footprint
-  and peak; it still has to be confirmed on an iPhone.
+  and peak; see the latest device check in `docs/BENCHMARK.md`.
 - **Safe**: a deterministic output guard rejects outputs that answer the text instead of
   correcting it (`"can you explain…"` → `"Sure, I'd be happy to…"`), copy words from the
-  prompt examples, or change too much. A rejection means "no suggestion", never a bad edit.
+  prompt examples, or change too much. A rejection means "no suggestion". This filter
+  reduces risk; it does not guarantee that every accepted edit is correct.
 
 ## Repository layout
 
 | Path | What |
 |---|---|
-| `App/` | SwiftUI containing app: editor, keyboard preview, model manager, settings, onboarding |
+| `App/` | Keyboard setup, model downloads, settings, and a native text field to check the real keyboard |
 | `Keyboard/` | Keyboard extension |
 | `Packages/WriterKit/` | `WritingCore`, `LlamaRuntime`, `KeyboardUI` + tests |
 | `UITests/` | End-to-end Simulator tests with a real model |
@@ -59,6 +84,44 @@ Keyboard extension (UIInputViewController + SwiftUI)
 iPhone with iOS 26 or later (A13 chip or newer). Inference uses ARM DotProd CPU instructions.
 
 ## Build & run
+
+For local development, double-click **Run Lokey.command**, or run:
+
+```sh
+scripts/run-simulator.sh
+```
+
+In Codex, open this folder as a local project and choose **Run Lokey** from the
+project actions. **Open in Xcode** opens the source project for editing and debugging.
+
+This builds the app, downloads and checks the recommended model, and opens a
+reusable **Lokey Local** iPhone simulator. Follow the setup steps and open
+**Check your keyboard**. Choose Lokey with the globe key, type your text, then
+tap **Fix → Apply** above the keys. Corrections run on this Mac without a server.
+Edit the source and run the same command to rebuild. The
+simulator keeps your model and settings. No Apple developer account is needed.
+
+Install Xcode with an iOS 26 or newer simulator, and `brew install xcodegen cmake`
+first. The first build compiles the AI engine and takes several minutes. Later
+builds reuse it. To choose another simulator, set `SIMULATOR_UDID`.
+
+In Xcode 27, select **Lokey Local** in Device Hub. To test the system keyboard,
+turn off **Device › Keyboard › Simulate Hardware Keyboard**. If the iPhone
+keyboard is hidden, choose **Toggle Software Keyboard** from the same menu.
+
+Checked locally on 2026-11-01 with Xcode 27.2, an iOS 27 simulator, and an iPhone
+17 Pro running iOS 26.6.1. The regression set scores 56/72 English and 8/8 French,
+with zero harmful edits under its similarity metric. This small set does not
+measure general French accuracy; see `docs/BENCHMARK.md`.
+
+For your connected iPhone, use the **Run on iPhone** Codex action or double-click
+**Run on iPhone.command**. It builds a signed Release app, installs the local model,
+and opens Lokey. The default signing team is the owner's personal team. Set
+`LOKEY_DEVELOPMENT_TEAM` and, if more than one phone is connected, `LOKEY_DEVICE_ID`
+to use another team or device. The phone must be unlocked, trusted, and in Developer
+Mode. Register the same App Group for both targets in Xcode before the first build.
+
+For Xcode editing and device builds:
 
 ```sh
 brew install xcodegen
@@ -80,16 +143,27 @@ MODEL_FILE=.models/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf scripts/ci/ios-e2e.sh   # 
 
 Linux (core + llama.cpp integration): `LLAMA_PREFIX=<dir with include/llama.h, lib/libllama.so> scripts/test-linux.sh`.
 
+## TestFlight uploads
+
+The **Upload to TestFlight** Codex action builds a Release archive and uploads it
+to the personal App Store Connect account. The Mac must be unlocked and Xcode
+signed in for development signing. Store signing and upload use the local signing
+key and the `lokey` API profile. Increment the build in `project.yml` and
+`store/app.json` before another upload. See
+[store/STATUS.md](store/STATUS.md) for the current build and remaining setup.
+Store metadata and TestFlight notes use the `lokey` API profile in this Mac's
+Keychain. See [store/CLI.md](store/CLI.md) for the repeatable agent workflow.
+
 ## Privacy
 
-The keyboard asks for Full Access only so it can read the model file the app downloaded into the
-shared App Group container. Apple's current documentation says keyboards without Full Access get
-read-only access to that container, which would be enough; this still has to be verified on a
-device before dropping the request. Lokey has
-no backend; the keyboard makes no network requests; the app only downloads model files from
-Hugging Face.
+Full Access lets the keyboard report setup status and diagnostics to the app.
+It is optional, and basic typing works without it. The keyboard processes text on the iPhone and makes no network requests.
+The app only connects to Hugging Face to download model files. Full Access is not used to upload text. See the [privacy policy](docs/PRIVACY.md).
 
 ## Docs
+
+- [docs/APP_STORE.md](docs/APP_STORE.md): release preparation and review notes.
+- [docs/PRIVACY.md](docs/PRIVACY.md): privacy policy.
 
 - [docs/RESEARCH.md](docs/RESEARCH.md): AiText teardown, competitors, model choice, iOS constraints, name.
 - [docs/BENCHMARK.md](docs/BENCHMARK.md): measured accuracy, latency and memory per model.

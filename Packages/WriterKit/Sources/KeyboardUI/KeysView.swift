@@ -15,7 +15,7 @@ struct KeySpec: Hashable {
 }
 
 enum KeyboardLayouts {
-    static func rows(for layer: KeyboardController.Layer, showGlobe: Bool) -> [[KeySpec]] {
+    static func rows(for layer: KeyboardController.Layer, layout: KeyboardLayout, showGlobe: Bool) -> [[KeySpec]] {
         // Every row adds up to 10 key units.
         let bottom: [KeySpec] = [
             KeySpec(kind: .layer(layer == .letters ? .numbers : .letters), width: 1.25),
@@ -28,8 +28,9 @@ enum KeyboardLayouts {
         func chars(_ s: String) -> [KeySpec] { s.map { KeySpec(kind: .character(String($0))) } }
         switch layer {
         case .letters:
-            return [chars("qwertyuiop"), chars("asdfghjkl"),
-                    [KeySpec(kind: .shift, width: 1.4)] + chars("zxcvbnm") + [KeySpec(kind: .delete, width: 1.4)],
+            let letters = layout.letterRows
+            return [chars(letters[0]), chars(letters[1]),
+                    [KeySpec(kind: .shift, width: 1.4)] + chars(letters[2]) + [KeySpec(kind: .delete, width: 1.4)],
                     bottom]
         case .numbers:
             return [chars("1234567890"), chars("-/:;()$&@\""),
@@ -48,7 +49,7 @@ struct KeysView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let rows = KeyboardLayouts.rows(for: controller.layer, showGlobe: controller.host?.needsInputModeSwitchKey ?? false)
+            let rows = KeyboardLayouts.rows(for: controller.layer, layout: controller.settings.keyboardLayout, showGlobe: controller.host?.needsInputModeSwitchKey ?? false)
             let unit = (geo.size.width - KeyboardStyle.sidePadding * 2 - KeyboardStyle.keySpacing * 9) / 10
             VStack(spacing: KeyboardStyle.rowSpacing) {
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
@@ -102,6 +103,13 @@ struct KeyButton: View {
                     if spec.kind != .delete { perform() }
                 }
         )
+        .contextMenu {
+            if case .character(let character) = spec.kind {
+                ForEach(KeyboardLayout.alternatives(for: character), id: \.self) { alternative in
+                    Button(display(alternative)) { controller.type(alternative) }
+                }
+            }
+        }
         .onChange(of: pressed) { _, isPressed in
             guard spec.kind == .delete else { return }
             if isPressed { startDeleteRepeat() } else { stopDeleteRepeat() }

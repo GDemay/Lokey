@@ -92,7 +92,6 @@ struct ToolbarView: View {
                 } else {
                     chip("Enhance", symbol: "wand.and.stars", id: "kb.enhance") { controller.panel = .enhance }
                     chip("Translate", symbol: "globe", id: "kb.translate") { controller.panel = .translate }
-                    chip(WritingAction.ask.title, symbol: WritingAction.ask.symbol, id: "kb.ask") { controller.run(.ask) }
                     Spacer(minLength: 0)
                 }
                 if controller.canUndo {
@@ -184,9 +183,19 @@ struct ResultPanel: View {
             }
             .accessibilityIdentifier("kb.working")
         case .result(_, let result):
-            Text(Self.attributed(result.segments, showRemoved: result.actionID == WritingAction.fix.id))
-                .accessibilityIdentifier("kb.result")
-                .accessibilityValue(result.output)
+            VStack(alignment: .leading, spacing: 14) {
+                Text(result.output)
+                    .accessibilityIdentifier("kb.result")
+                    .accessibilityValue(result.output)
+                if result.hasChanges {
+                    DisclosureGroup("Review changes") {
+                        Text(Self.attributed(result.segments, showRemoved: result.actionID == WritingAction.fix.id))
+                            .font(.subheadline).padding(.top, 8)
+                    }
+                    .font(.subheadline)
+                    .accessibilityIdentifier("kb.reviewChanges")
+                }
+            }
         case .message(let message):
             Text(message).accessibilityIdentifier("kb.message")
         case .idle:

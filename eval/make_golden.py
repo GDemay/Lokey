@@ -16,9 +16,9 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Packages",
 
 p = bench.load_prompts(bench.DEFAULT_PROMPTS)
 renders = []
-for action in ["fix", "professional", "ask", "to_english"]:
+for action in ["fix", "fix_french", "professional", "ask", "to_english"]:
     for fmt in ["chatml", "lfm3"]:
-        for text in ["i dont know", 'Café 🙂 "quoted"\nnew line']:
+        for text in ["Je cai pas écrit francai", "i dont know", 'Café 🙂 "quoted"\nnew line']:
             renders.append({"action": action, "format": fmt, "text": text,
                             "full": bench.render(p, fmt, bench.build_messages(p, action, text))})
 
@@ -29,6 +29,13 @@ for path in sys.argv[1:]:
 pairs += [("u r gr8", "you are great"), ("", ""), ("Hello", ""), ("ok", "OK."),
           ("Teh meeting is at 3pm.", "The meeting is at 3pm."),
           ("I want to come to.", "I want to come to Café Luna."),
+          ("I has 2 kid", "I have 2 kids."),
+          ("He have a dog.", "He has a dog."),
+          ("He do it.", "He does it."),
+          ("I were late.", "I was late."),
+          ("I have 2 kids.", "I had 2 kids."),
+          ("I have a cat.", "I have a dog."),
+          ("I has 2 kid", "Kids are great!"),
           ("I was bored with this movie.", "I was bored with this movie.")]
 seen, guards = set(), []
 for s, o in pairs:

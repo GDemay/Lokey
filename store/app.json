@@ -1,0 +1,17 @@
+{
+  "bundle_id": "com.gdemay.lokey",
+  "version": "1.0.0",
+  "build": "3",
+  "sku": "lokey-ios",
+  "primary_language": "en-US",
+  "category": "UTILITIES",
+  "secondary_category": "PRODUCTIVITY",
+  "copyright": "2026 Guillaume Demay",
+  "support_url": "https://github.com/GDemay/Lokey/issues",
+  "privacy_url": "https://github.com/GDemay/Lokey/blob/1767fd3355b95ef199e047b672eb03f30aec1a16/docs/PRIVACY.md",
+  "marketing_url": "https://github.com/GDemay/Lokey",
+  "price": "FREE",
+  "release_type": "MANUAL",
+  "apple_id": "6829549183",
+  "app_store_connect_url": "https://appstoreconnect.apple.com/apps/6829549183"
+}

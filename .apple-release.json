@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "name": "Lokey",
+  "bundle_id": "com.gdemay.lokey",
+  "app_id": "6829549183",
+  "platform": "IOS",
+  "profile": "lokey",
+  "team_id": "GB87Z9SKC5",
+  "project": "Lokey.xcodeproj",
+  "scheme": "Lokey"
+}

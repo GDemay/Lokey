@@ -11,6 +11,7 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
     private var controller: KeyboardController!
     private var hosting: UIHostingController<KeyboardView>!
     private let settingsStore = SettingsStore.shared()
+    private var loadedModel: ModelInfo?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -18,7 +19,8 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
         let store = settingsStore
         controller = KeyboardController(document: document, host: self, settings: store.load()) { [weak self] in
             let (assistant, model) = try await KeyboardEngine.shared.assistant(settings: store.load())
-            self?.reportStatus(modelName: model.name)
+            self?.loadedModel = model
+            self?.reportStatus()
             return assistant
         }
         hosting = UIHostingController(rootView: KeyboardView(controller: controller))
@@ -42,7 +44,7 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
         super.viewWillAppear(animated)
         controller.settings = settingsStore.load()
         controller.resetTransientState()
-        reportStatus(modelName: nil)
+        reportStatus()
         let preload = hasFullAccess && controller.settings.autocorrectMode != .off
         Diagnostics.log("keyboard will appear (full access: \(hasFullAccess), preload: \(preload)); \(MemoryBudget.summary())")
         if preload {
@@ -53,28 +55,29 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         controller.resetTransientState()
-        reportStatus(modelName: nil)
+        reportStatus()
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
         controller?.textDidChange()
+        reportStatus()
     }
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         Diagnostics.log("keyboard memory warning; " + MemoryBudget.summary())
-        reportStatus(modelName: nil)
+        loadedModel = nil
+        reportStatus()
         controller.releaseEngine()
         KeyboardEngine.shared.release()
     }
 
-    private func reportStatus(modelName: String?) {
+    private func reportStatus() {
         guard hasFullAccess else { return }
-        var status = settingsStore.loadKeyboardStatus() ?? KeyboardStatus(lastSeen: Date(), hasFullAccess: true)
-        status.lastSeen = Date()
-        status.hasFullAccess = true
-        if let modelName { status.modelName = modelName }
+        var status = KeyboardStatus(lastSeen: Date(), hasFullAccess: true,
+                                    modelName: loadedModel?.name, modelID: loadedModel?.id,
+                                    checkID: settingsStore.load().keyboardCheckID)
         status.footprintMB = MemoryBudget.footprintBytes().map { Double($0) / 1_048_576 }
         status.peakFootprintMB = MemoryBudget.peakFootprintBytes().map { Double($0) / 1_048_576 }
         settingsStore.saveKeyboardStatus(status)
@@ -108,7 +111,7 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
     }
 
     func didFinishModelRequest() {
-        reportStatus(modelName: nil)
+        reportStatus()
     }
 }
 

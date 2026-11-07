@@ -64,9 +64,9 @@ final class PromptAndGuardTests: XCTestCase {
 
     /// Guard decisions must match the Python harness on real model outputs.
     func testGuardMatchesPythonHarness() throws {
-        let outputGuard = try OutputGuard(library: library, action: "fix")
         var mismatches: [String] = []
         for g in golden.guards {
+            let outputGuard = try OutputGuard(library: library, action: "fix", text: g.source)
             let verdict = outputGuard.evaluate(source: g.source, output: g.output)
             let sim = Similarity.ratio(g.source, g.output)
             let ret = Similarity.wordRetention(source: g.source, output: g.output)
@@ -92,5 +92,23 @@ final class PromptAndGuardTests: XCTestCase {
         let g = try OutputGuard(library: library, action: "professional")
         XCTAssertEqual(g.evaluate(source: "gonna be late sry", output: "I apologize, I will be arriving a little late."), .accepted)
         XCTAssertEqual(g.evaluate(source: "gonna be late sry", output: "Sure! Here is a professional version: I will be late."), .rejected(.opener))
+    }
+
+    func testGuardAcceptsSubjectAgreementWithoutDroppingContentChecks() throws {
+        let g = try OutputGuard(library: library, action: "fix")
+        for (source, output) in [
+            ("I has 2 kid", "I have 2 kids."),
+            ("He have a dog.", "He has a dog."),
+            ("He do it.", "He does it."),
+            ("I were late.", "I was late."),
+        ] {
+            XCTAssertEqual(g.evaluate(source: source, output: output), .accepted, "\(source) → \(output)")
+        }
+        XCTAssertEqual(Similarity.wordRetention(source: "I has 2 kid", output: "I have 2 kids."), 1)
+        XCTAssertEqual(Similarity.leakedWords(source: "He has a dog.", output: "He does have a dog.",
+                                            exampleWords: ["have", "does"]), ["does"])
+        XCTAssertEqual(g.evaluate(source: "I have 2 kids.", output: "I had 2 kids."), .rejected(.retention))
+        XCTAssertEqual(g.evaluate(source: "I have a cat.", output: "I have a dog."), .rejected(.retention))
+        XCTAssertEqual(g.evaluate(source: "I has 2 kid", output: "Kids are great!"), .rejected(.similarity))
     }
 }

@@ -26,30 +26,14 @@ enum Palette {
 
 struct RootView: View {
     @EnvironmentObject var model: AppModel
-    @State private var tab = Tab.write
-
-    enum Tab: Hashable { case write, keyboard, models, settings }
 
     var body: some View {
-        TabView(selection: $tab) {
-            EditorView(openModels: { tab = .models })
-                .tabItem { Label("Write", systemImage: "square.and.pencil") }
-                .tag(Tab.write)
-            KeyboardPreviewView()
-                .tabItem { Label("Keyboard", systemImage: "keyboard") }
-                .tag(Tab.keyboard)
-            ModelsView()
-                .tabItem { Label("Models", systemImage: "cpu") }
-                .tag(Tab.models)
-            SettingsView()
-                .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(Tab.settings)
-        }
-        .fullScreenCover(isPresented: Binding(
-            get: { !model.settings.hasCompletedOnboarding },
-            set: { if !$0 { model.settings.hasCompletedOnboarding = true } }
-        )) {
-            OnboardingView()
+        NavigationStack {
+            if model.isSettingUp {
+                GuidedSetupView()
+            } else {
+                KeyboardSetupView()
+            }
         }
     }
 }
