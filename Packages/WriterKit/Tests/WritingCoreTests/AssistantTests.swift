@@ -86,12 +86,12 @@ final class AssistantTests: XCTestCase {
 
     func testFixPreservesChatReactionsWhenTheModelDropsOrRestylesThem() async throws {
         let omitted = "omg I cant beleive it!!"
-        let restyled = "mdr t'as recu le colis"
+        let restyled = "mdr je l'ai recu hier"
         let prompt = "can you check if that file includes the numbers from our last meeting?"
         let unrelated = "lol " + prompt
         let generator = ScriptedGenerator([
             omitted: "I can't believe it!!",
-            restyled: "MDR, t'as reçu le colis.",
+            restyled: "MDR, je l'ai reçu hier.",
             unrelated: "Sure, " + prompt,
         ])
         let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
@@ -99,7 +99,7 @@ final class AssistantTests: XCTestCase {
         let fr = try await assistant.run(actionID: "fix", text: restyled)
         let rejected = try await assistant.run(actionID: "fix", text: unrelated)
         XCTAssertEqual(en.output, "omg I can't believe it!!")
-        XCTAssertEqual(fr.output, "mdr t'as reçu le colis")
+        XCTAssertEqual(fr.output, "mdr je l'ai reçu hier")
         XCTAssertEqual(rejected.output, unrelated)
         XCTAssertEqual(rejected.rejectedChunks, 1)
     }

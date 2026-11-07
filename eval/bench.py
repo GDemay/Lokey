@@ -33,7 +33,7 @@ def load_prompts(path):
 
 def correction_language(text):
     tokens = set(words(text))
-    french = set("je jai jétais tu il elle nous vous ils elles les des une dans pour avec comme pas est suis sont bonjour merci français francais ça cest sest était demain hier peux peut veux mdr".split())
+    french = set("je jai jétais tu il elle nous vous ils elles les des une dans pour avec comme pas est suis sont bonjour merci français francais ça cest sest était demain hier peux peut veux".split())
     english = set("i im you he she we they the this that is are have has dont doesnt will would what how please thanks your my its their".split())
     fr_score = len(tokens & french) * 3 + len(tokens & set("le la de du se ne au".split()))
     en_score = len(tokens & english) * 3
