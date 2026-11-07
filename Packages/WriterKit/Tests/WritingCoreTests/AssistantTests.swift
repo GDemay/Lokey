@@ -44,6 +44,46 @@ final class AssistantTests: XCTestCase {
         XCTAssertEqual(result.rejectedChunks, 0)
     }
 
+    func testFixKeepsTheOriginalEnding() async throws {
+        let generator = ScriptedGenerator([
+            "Je peut pas venir": "je ne peux pas venir.",
+            "Je ne peut pas venir": "Je ne peux pas venir.",
+            "Je cai pas écrit francai": "Je n'ai pas écrit en français.",
+            "tu peut venir ?!": "tu peux venir?",
+            "on se voit demain": "on se voit demain.",
+        ])
+        let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
+        let plain = try await assistant.run(actionID: "fix", text: "Je peut pas venir")
+        let formal = try await assistant.run(actionID: "fix", text: "Je ne peut pas venir")
+        let ambiguous = try await assistant.run(actionID: "fix", text: "Je cai pas écrit francai")
+        let question = try await assistant.run(actionID: "fix", text: "tu peut venir ?!")
+        let alreadyCorrect = try await assistant.run(actionID: "fix", text: "on se voit demain")
+        XCTAssertEqual(plain.output, "Je peux pas venir")
+        XCTAssertEqual(formal.output, "Je ne peux pas venir")
+        XCTAssertFalse(ambiguous.hasChanges)
+        XCTAssertEqual(question.output, "tu peux venir ?!")
+        XCTAssertFalse(alreadyCorrect.hasChanges)
+    }
+
+    func testFixPreservesApostrophesInUnchangedWords() async throws {
+        let unchanged = "Je te l’annonce, j’ai le temps"
+        let mixed = "J’ai dit que c'est comme ca"
+        let generator = ScriptedGenerator([
+            unchanged: "Je te l'annonce, j'ai le temps",
+            mixed: "J'ai dit que c’est comme ça",
+            "I dont know": "I don't know",
+        ])
+        let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)
+
+        let same = try await assistant.run(actionID: "fix", text: unchanged)
+        XCTAssertFalse(same.hasChanges)
+        let corrected = try await assistant.run(actionID: "fix", text: mixed)
+        XCTAssertEqual(corrected.output, "J’ai dit que c'est comme ça")
+        XCTAssertEqual(corrected.changes, ["ca → ça"])
+        let missing = try await assistant.run(actionID: "fix", text: "I dont know")
+        XCTAssertEqual(missing.output, "I don't know")
+    }
+
     func testEmptyTextDoesNotCallModel() async throws {
         let generator = ScriptedGenerator([:])
         let assistant = WritingAssistant(library: try PromptLibrary.bundled(), generator: generator)

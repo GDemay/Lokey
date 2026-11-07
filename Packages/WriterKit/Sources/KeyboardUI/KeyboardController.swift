@@ -129,8 +129,16 @@ public final class KeyboardController: ObservableObject {
             afterEdit(inserted: ". ")
             return
         }
-        document.insertText(" ")
+        let correction = wordCorrection(before: before)
+        if let (word, replacement) = correction {
+            EditPlanner.apply(EditPlanner.plan(original: word, replacement: replacement + " "), to: document)
+        } else {
+            document.insertText(" ")
+        }
         afterEdit(inserted: " ")
+        if let (word, replacement) = correction {
+            undoRecord = (word + " ", replacement + " ")
+        }
         lastSpaceTime = Date()
         if layer != .letters { layer = .letters }
     }
@@ -139,6 +147,17 @@ public final class KeyboardController: ObservableObject {
         feedback()
         document.insertText("\n")
         afterEdit(inserted: "\n")
+    }
+
+    func moveTypingCursor(by offset: Int) {
+        guard offset != 0 else { return }
+        let context = offset < 0 ? document.documentContextBeforeInput : document.documentContextAfterInput
+        guard let context else { return }
+        let crossed = offset < 0 ? context.suffix(-offset) : context.prefix(offset)
+        guard !crossed.isEmpty, EditPlanner.isOffsetSafe(String(crossed)) else { return }
+        lastSpaceTime = nil
+        undoRecord = nil
+        document.adjustTextPosition(byCharacterOffset: offset < 0 ? -crossed.count : crossed.count)
     }
 
     public func backspace() {
@@ -241,6 +260,39 @@ public final class KeyboardController: ObservableObject {
         String(before.reversed().prefix(while: { $0.isLetter || $0 == "'" || $0 == "’" }).reversed())
     }
 
+    private func wordCorrection(before: String) -> (word: String, replacement: String)? {
+        guard settings.autocorrectMode == .automatic, settings.keyboardLayout.resolved() == .azerty,
+              document.selectedText?.isEmpty != false else { return nil }
+        let after = document.documentContextAfterInput
+        guard after?.first.map(\.isWhitespace) != false else { return nil }
+        let word = Self.currentWord(in: before)
+        let prefix = before.dropLast(word.count)
+        guard (4...24).contains(word.count), word.allSatisfy(\.isLetter),
+              word.dropFirst().allSatisfy(\.isLowercase),
+              prefix.last?.isWhitespace != false else { return nil }
+        if word.first?.isUppercase == true {
+            let previous = prefix.reversed().drop(while: { $0.isWhitespace && !$0.isNewline }).first
+            if let previous, !previous.isNewline, !TextChunker.sentenceTerminators.contains(previous) {
+                return nil
+            }
+        }
+        let range = NSRange(location: 0, length: word.utf16.count)
+        guard let guesses = spellingGuesses(for: word, range: range, language: "fr_FR"),
+              let replacement = AzertyWordCorrection.uniqueMatch(for: word, guesses: guesses),
+              textChecker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0,
+                                               wrap: false, language: "en_US").location != NSNotFound,
+              document.documentContextBeforeInput == before, document.documentContextAfterInput == after,
+              document.selectedText?.isEmpty != false else { return nil }
+        return (word, replacement)
+    }
+
+    private func spellingGuesses(for word: String, range: NSRange, language: String) -> [String]? {
+        let misspelled = textChecker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0,
+                                                          wrap: false, language: language)
+        guard misspelled.location != NSNotFound else { return nil }
+        return textChecker.guesses(forWordRange: range, in: word, language: language) ?? []
+    }
+
     private func updateSuggestions() {
         guard settings.spellingSuggestions else { suggestions = []; return }
         let word = Self.currentWord(in: document.documentContextBeforeInput ?? "")
@@ -248,10 +300,9 @@ public final class KeyboardController: ObservableObject {
         let context = String((document.documentContextBeforeInput ?? "").suffix(180))
         let language = CorrectionLanguage.detect(in: context) == .french ? "fr_FR" : "en_US"
         let range = NSRange(location: 0, length: (word as NSString).length)
-        let misspelled = textChecker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0, wrap: false, language: language)
         var result: [String]
-        if misspelled.location != NSNotFound {
-            result = textChecker.guesses(forWordRange: range, in: word, language: language) ?? []
+        if let guesses = spellingGuesses(for: word, range: range, language: language) {
+            result = guesses
         } else {
             result = textChecker.completions(forPartialWordRange: range, in: word, language: language) ?? []
             if !result.contains(word) { result.insert(word, at: 0) }
@@ -361,7 +412,7 @@ public final class KeyboardController: ObservableObject {
                 try Task.checkCancellation()
                 lastWaitSeconds = Date().timeIntervalSince(started)
                 if !result.hasChanges {
-                    phase = .message(result.rejectedChunks > 0 ? "No safe suggestion for this text." : "Looks good. Nothing to fix.")
+                    phase = .message(result.rejectedChunks > 0 ? "No safe suggestion for this text." : "No changes suggested.")
                 } else if action == .fix && !settings.showChangesBeforeApplying {
                     apply(result, target: target)
                 } else {
@@ -369,8 +420,9 @@ public final class KeyboardController: ObservableObject {
                     phase = .result(action: action, result: result)
                 }
             } catch is CancellationError {
-                if case .working(let current, _) = phase, current == action { phase = .idle }
+                if !Task.isCancelled, case .working(let current, _) = phase, current == action { phase = .idle }
             } catch {
+                guard !Task.isCancelled else { return }
                 phase = .message(error.localizedDescription)
             }
         }
@@ -410,7 +462,7 @@ public final class KeyboardController: ObservableObject {
         let before = document.documentContextBeforeInput ?? ""
         // Hosts may truncate the context; accept a visible tail of the replacement.
         let intact = before.hasSuffix(record.replacement) || (before.count >= 40 && record.replacement.hasSuffix(before))
-        guard intact else { return }
+        guard intact, document.selectedText?.isEmpty != false else { return }
         EditPlanner.apply(EditPlanner.plan(original: record.replacement, replacement: record.original), to: document)
         updateShiftForContext()
     }
@@ -423,6 +475,11 @@ public final class KeyboardController: ObservableObject {
         actionTask?.cancel()
         pendingTarget = nil
         phase = .idle
+    }
+
+    func openPanel(_ panel: Panel) {
+        dismissPhase()
+        self.panel = panel
     }
 
     // MARK: Autocorrect as you type

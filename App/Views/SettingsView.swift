@@ -22,7 +22,7 @@ struct SettingsView: View {
             } header: {
                 Text("Keyboard")
             } footer: {
-                Text("Automatic fixes small errors when you finish a sentence, with one tap to undo. Suggest shows a correction above the keys for you to apply.")
+                Text("Automatic fixes clear French typos when you press Space on AZERTY. It also fixes small errors when you finish a sentence. You can undo either correction. Suggest shows sentence corrections above the keys for you to apply.")
             }
 
             Section("Privacy") {

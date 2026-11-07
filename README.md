@@ -121,6 +121,11 @@ and opens Lokey. The default signing team is the owner's personal team. Set
 to use another team or device. The phone must be unlocked, trusted, and in Developer
 Mode. Register the same App Group for both targets in Xcode before the first build.
 
+For updates to an already paired iPhone, use the **Install on iPhone** Codex
+action or run `scripts/run-device.sh --install-only`. It installs the signed app
+and keeps the existing models and settings. The iPhone can stay locked as long
+as it is reachable from the Mac. Open Lokey after you unlock the phone.
+
 For Xcode editing and device builds:
 
 ```sh

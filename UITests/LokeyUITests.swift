@@ -206,6 +206,7 @@ final class LokeyUITests: XCTestCase {
         openKeyboardCheck()
         selectLokeyKeyboard()
         typeOnKeyboard("their going to the park")
+        if !key("kb.key..").exists { key("kb.layer").tap() }
         key("kb.key..").tap()
         key("kb.space").tap()
         XCTAssertTrue(key("kb.live.text").waitForExistence(timeout: 240))
@@ -240,6 +241,20 @@ final class LokeyUITests: XCTestCase {
         selectLokeyKeyboard()
         XCTAssertLessThan(key("kb.key.a").frame.minY, key("kb.key.q").frame.minY)
         XCTAssertEqual(key("kb.key.m").frame.minY, key("kb.key.l").frame.minY, accuracy: 2)
+        XCTAssertEqual(key("kb.key.w").frame.midX,
+                       (key("kb.key.z").frame.midX + key("kb.key.e").frame.midX) / 2, accuracy: 2)
+        XCTAssertEqual(key("kb.key.n").frame.midX,
+                       (key("kb.key.u").frame.midX + key("kb.key.i").frame.midX) / 2, accuracy: 2)
+        XCTAssertEqual(key("kb.key.’").frame.midX,
+                       (key("kb.key.i").frame.midX + key("kb.key.o").frame.midX) / 2, accuracy: 2)
+        XCTAssertFalse(key("kb.key.,").exists)
+        XCTAssertFalse(key("kb.key..").exists)
+        key("kb.layer").tap()
+        XCTAssertTrue(key("kb.key.,").exists)
+        XCTAssertTrue(key("kb.key..").exists)
+        XCTAssertTrue(key("kb.key.€").exists)
+        screenshot("azerty-numbers")
+        key("kb.layer").tap()
         typeOnKeyboard("azerty ")
         let editor = app.textViews["setup.testText"]
         XCTAssertEqual(editor.value as? String, "Azerty ")
@@ -249,29 +264,39 @@ final class LokeyUITests: XCTestCase {
         accented.tap()
         XCTAssertEqual(editor.value as? String, "Azerty é")
         screenshot("azerty-keyboard")
+
+        let u = element("kb.key.u", in: keyboardProcess).frame
+        let i = element("kb.key.i", in: keyboardProcess).frame
+        let b = element("kb.key.b", in: keyboardProcess).frame
+        let space = element("kb.space", in: keyboardProcess).frame
+        let screenOrigin = app.coordinate(withNormalizedOffset: .zero)
+        // Aim into each visible gap on the side closest to the intended key.
+        screenOrigin.withOffset(CGVector(dx: (u.midX + i.midX) / 2 - 1.5, dy: u.midY)).tap()
+        screenOrigin.withOffset(CGVector(dx: b.midX, dy: (b.midY + space.midY) / 2 - 2)).tap()
+        XCTAssertEqual(editor.value as? String, "Azerty éub")
+        key("kb.key.’").tap()
+        XCTAssertEqual(editor.value as? String, "Azerty éub’")
     }
 
 
     func test07_FrenchCorrectionPreservesWritingMeaning() throws {
         openKeyboardCheck()
         selectLokeyKeyboard()
-        typeOnKeyboard("je cai pas ")
-        key("kb.key.e").press(forDuration: 1.2)
-        app.buttons["é"].firstMatch.tap()
-        typeOnKeyboard("crit francai")
+        typeOnKeyboard("je peut pas venir demain")
         let editor = app.textViews["setup.testText"]
-        XCTAssertEqual(editor.value as? String, "Je cai pas écrit francai")
+        XCTAssertEqual(editor.value as? String, "Je peut pas venir demain")
         key("kb.fix").tap()
         XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 120))
         let proposal = key("kb.result")
         XCTAssertTrue(proposal.waitForExistence(timeout: 5))
-        XCTAssertFalse(proposal.label.contains("cai"))
-        XCTAssertTrue(proposal.label.contains("écrire"))
-        XCTAssertTrue(key("kb.reviewChanges").exists)
+        XCTAssertEqual(proposal.label, "Je peux pas venir demain")
+        XCTAssertTrue(key("kb.changeLegend").isHittable)
+        XCTAssertTrue(proposal.isHittable)
+        XCTAssertEqual(editor.value as? String, "Je peut pas venir demain")
         screenshot("french-correction-suggestion")
         key("kb.apply").tap()
         let output = try XCTUnwrap(editor.value as? String)
-        XCTAssertTrue(["Je ne sais pas écrire français.", "Je ne sais pas comment écrire en français."].contains(output), output)
+        XCTAssertEqual(output, "Je peux pas venir demain")
         XCTAssertTrue(element("setup.verified").waitForExistence(timeout: 5))
         screenshot("french-correction-applied")
     }
@@ -302,6 +327,66 @@ final class LokeyUITests: XCTestCase {
         XCTAssertFalse(element("setup.verified").exists)
         screenshot("typing-without-full-access")
         try enableLokey(fullAccess: true)
+    }
+
+    func test10_AZERTYCorrectsOneLetterOnSpace() {
+        let settings = element("setup.settings")
+        if !settings.isHittable { app.swipeUp() }
+        settings.tap()
+        element("settings.layout").tap()
+        app.buttons["AZERTY"].tap()
+        app.navigationBars.buttons.firstMatch.tap()
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+
+        let editor = app.textViews["setup.testText"]
+        typeOnKeyboard("bnjour")
+        XCTAssertEqual(editor.value as? String, "Bnjour")
+        key("kb.space").tap()
+        XCTAssertEqual(editor.value as? String, "Bonjour ")
+        key("kb.undo").tap()
+        XCTAssertEqual(editor.value as? String, "Bnjour ")
+
+        typeOnKeyboard("bonjpur bonjour hello zxzx ")
+        XCTAssertEqual(editor.value as? String, "Bnjour bonjour bonjour hello zxzx ")
+    }
+
+    func test11_HoldSpaceAndDragMovesCursor() {
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+        typeOnKeyboard("abcd")
+        let space = key("kb.space").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        space.press(forDuration: 0.6, thenDragTo: space.withOffset(CGVector(dx: -31, dy: 0)))
+        key("kb.key.x").tap()
+        XCTAssertEqual(app.textViews["setup.testText"].value as? String, "Abxcd")
+    }
+
+    func test12_TranslateFromFixPreview() throws {
+        openKeyboardCheck()
+        selectLokeyKeyboard()
+        typeOnKeyboard("tu peut venir demain ")
+        let editor = app.textViews["setup.testText"]
+        let source = try XCTUnwrap(editor.value as? String)
+        key("kb.fix").tap()
+        XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 120))
+
+        key("kb.translate").tap()
+        let english = key("kb.action.to_english")
+        XCTAssertTrue(english.waitForExistence(timeout: 3))
+        XCTAssertEqual(editor.value as? String, source)
+
+        english.tap()
+        XCTAssertTrue(key("kb.apply").waitForExistence(timeout: 120))
+        let translation = key("kb.result").label
+        XCTAssertTrue(translation.lowercased().contains("tomorrow"), translation)
+        let original = key("kb.original")
+        XCTAssertTrue(original.isHittable)
+        XCTAssertEqual(original.label.trimmingCharacters(in: .whitespacesAndNewlines),
+                       source.trimmingCharacters(in: .whitespacesAndNewlines))
+        screenshot("translation-original-and-proposal")
+        key("kb.apply").tap()
+        XCTAssertEqual((editor.value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       translation.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
 }

@@ -35,13 +35,27 @@ public enum TextDiff {
 
     /// LCS diff over tokens, with adjacent segments of the same kind merged.
     public static func diff(_ old: String, _ new: String) -> [Segment] {
+        diff(old, new, ignoringApostropheStyle: false)
+    }
+
+    /// Keep the user's glyph in words that only changed from straight to curly apostrophes or back.
+    static func preservingApostrophes(from source: String, in output: String) -> String {
+        guard (source.contains("’") && output.contains("'")) ||
+              (source.contains("'") && output.contains("’")) else { return output }
+        return diff(source, output, ignoringApostropheStyle: true)
+            .filter { $0.kind != .removed }.map(\.text).joined()
+    }
+
+    private static func diff(_ old: String, _ new: String, ignoringApostropheStyle: Bool) -> [Segment] {
         let a = tokenize(old), b = tokenize(new)
+        let oldKeys = ignoringApostropheStyle ? a.map { $0.replacingOccurrences(of: "’", with: "'") } : a
+        let newKeys = ignoringApostropheStyle ? b.map { $0.replacingOccurrences(of: "’", with: "'") } : b
         let n = a.count, m = b.count
         var lcs = [[Int]](repeating: [Int](repeating: 0, count: m + 1), count: n + 1)
         if n > 0 && m > 0 {
             for i in stride(from: n - 1, through: 0, by: -1) {
                 for j in stride(from: m - 1, through: 0, by: -1) {
-                    lcs[i][j] = a[i] == b[j] ? lcs[i + 1][j + 1] + 1 : max(lcs[i + 1][j], lcs[i][j + 1])
+                    lcs[i][j] = oldKeys[i] == newKeys[j] ? lcs[i + 1][j + 1] + 1 : max(lcs[i + 1][j], lcs[i][j + 1])
                 }
             }
         }
@@ -55,7 +69,7 @@ public enum TextDiff {
         }
         var i = 0, j = 0
         while i < n && j < m {
-            if a[i] == b[j] {
+            if oldKeys[i] == newKeys[j] {
                 push(.equal, a[i]); i += 1; j += 1
             } else if lcs[i + 1][j] >= lcs[i][j + 1] {
                 push(.removed, a[i]); i += 1

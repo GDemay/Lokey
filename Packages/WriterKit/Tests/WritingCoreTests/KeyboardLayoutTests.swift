@@ -15,7 +15,7 @@ final class KeyboardLayoutTests: XCTestCase {
             let letters = layout.letterRows.joined().filter { $0.isLetter }
             XCTAssertEqual(String(letters.sorted()), "abcdefghijklmnopqrstuvwxyz")
         }
-        XCTAssertEqual(KeyboardLayout.azerty.letterRows, ["azertyuiop", "qsdfghjklm", "wxcvbn,"])
+        XCTAssertEqual(KeyboardLayout.azerty.letterRows, ["azertyuiop", "qsdfghjklm", "wxcvbn’"])
         XCTAssertTrue(KeyboardLayout.alternatives(for: "e").contains("é"))
         XCTAssertTrue(KeyboardLayout.alternatives(for: "c").contains("ç"))
     }
@@ -23,6 +23,7 @@ final class KeyboardLayoutTests: XCTestCase {
     func testFrenchRoutingKeepsEnglishPromptsSeparate() throws {
         let library = try PromptLibrary.bundled()
         XCTAssertEqual(CorrectionLanguage.detect(in: "Je cai pas écrit francai"), .french)
+        XCTAssertEqual(CorrectionLanguage.detect(in: "On se voit à 18 h, comme prévu."), .french)
         XCTAssertEqual(CorrectionLanguage.detect(in: "I have two kids and I live in France."), .english)
         XCTAssertEqual(CorrectionLanguage.detect(in: "On Sunday I go to the café."), .english)
         XCTAssertEqual(library.resolvedAction("fix", text: "Je veux écrire"), "fix_french")
@@ -31,6 +32,16 @@ final class KeyboardLayoutTests: XCTestCase {
         let guarder = try OutputGuard(library: library, action: "fix", text: "il a oublier les cle")
         XCTAssertTrue(guarder.evaluate(source: "il a oublier les cle", output: "Il a oublié les clés.").isAccepted)
         XCTAssertFalse(guarder.evaluate(source: "Je cai pas écrit francai", output: "Je ne sais pas parler français.").isAccepted)
+    }
+
+    func testAzertyCorrectionRequiresOneClearMissingOrNeighboringLetter() {
+        XCTAssertEqual(AzertyWordCorrection.uniqueMatch(for: "Bnjour", guesses: ["bonjour", "bonjours"]), "Bonjour")
+        XCTAssertEqual(AzertyWordCorrection.uniqueMatch(for: "bonjpur", guesses: ["bonjour"]), "bonjour")
+        XCTAssertEqual(AzertyWordCorrection.uniqueMatch(for: "bonjou", guesses: ["bonjour"]), "bonjour")
+        XCTAssertNil(AzertyWordCorrection.uniqueMatch(for: "bonjaur", guesses: ["bonjour"]))
+        XCTAssertNil(AzertyWordCorrection.uniqueMatch(for: "bonjoru", guesses: ["bonjour"]))
+        XCTAssertNil(AzertyWordCorrection.uniqueMatch(for: "plae", guesses: ["place", "plage"]))
+        XCTAssertNil(AzertyWordCorrection.uniqueMatch(for: "bonjour", guesses: ["bonjour"]))
     }
 
 }

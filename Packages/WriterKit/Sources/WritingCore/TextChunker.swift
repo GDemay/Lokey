@@ -14,6 +14,21 @@ public enum TextChunker {
 
     public static let sentenceTerminators: Set<Character> = [".", "!", "?", "…"]
 
+    /// Retains the ending the user chose, including an unfinished sentence or question.
+    public static func preserveEnding(of source: String, in output: String) -> String {
+        guard !output.isEmpty else { return output }
+        func splitEnding(_ text: String) -> (body: Substring, ending: Substring) {
+            let marks = text.reversed().prefix(while: sentenceTerminators.contains).count
+            guard marks > 0 else { return (text[...], text.suffix(0)) }
+            let beforeMarks = text.dropLast(marks)
+            let spacing = beforeMarks.reversed().prefix(while: { $0.isWhitespace && !$0.isNewline }).count
+            return (beforeMarks.dropLast(spacing), text.suffix(marks + spacing))
+        }
+        let sourceEnding = splitEnding(source).ending
+        let (body, _) = splitEnding(output)
+        return String(body + sourceEnding)
+    }
+
     /// Sentence ranges: a sentence ends after a run of terminators (plus closing quotes/brackets)
     /// followed by whitespace, or at a newline.
     public static func sentences(_ text: String) -> [String] {

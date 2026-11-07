@@ -10,6 +10,7 @@ import WritingCore
 final class KeyboardViewController: UIInputViewController, KeyboardHost {
     private var controller: KeyboardController!
     private var hosting: UIHostingController<KeyboardView>!
+    private var keyboardHeight: NSLayoutConstraint!
     private let settingsStore = SettingsStore.shared()
     private var loadedModel: ModelInfo?
 
@@ -35,14 +36,15 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
             hosting.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         hosting.didMove(toParent: self)
-        let height = view.heightAnchor.constraint(equalToConstant: KeyboardView.preferredHeight)
-        height.priority = UILayoutPriority.defaultHigh
-        height.isActive = true
+        keyboardHeight = view.heightAnchor.constraint(equalToConstant: KeyboardView.preferredHeight(for: controller.settings.keyboardLayout))
+        keyboardHeight.priority = UILayoutPriority.defaultHigh
+        keyboardHeight.isActive = true
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         controller.settings = settingsStore.load()
+        keyboardHeight.constant = KeyboardView.preferredHeight(for: controller.settings.keyboardLayout)
         controller.resetTransientState()
         reportStatus()
         let preload = hasFullAccess && controller.settings.autocorrectMode != .off

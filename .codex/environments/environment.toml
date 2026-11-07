@@ -20,6 +20,11 @@ icon = "run"
 command = "./\"Run on iPhone.command\""
 
 [[actions]]
+name = "Install on iPhone"
+icon = "run"
+command = "./scripts/run-device.sh --install-only"
+
+[[actions]]
 name = "Upload to TestFlight"
 icon = "run"
 command = "./scripts/upload-testflight.sh"

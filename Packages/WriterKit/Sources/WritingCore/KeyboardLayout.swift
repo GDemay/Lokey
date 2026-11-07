@@ -20,7 +20,7 @@ public enum KeyboardLayout: String, Codable, CaseIterable, Sendable {
 
     public var letterRows: [String] {
         switch resolved() {
-        case .azerty: return ["azertyuiop", "qsdfghjklm", "wxcvbn,"]
+        case .azerty: return ["azertyuiop", "qsdfghjklm", "wxcvbn’"]
         case .qwertz: return ["qwertzuiop", "asdfghjkl", "yxcvbnm"]
         default: return ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
         }

@@ -65,10 +65,13 @@ public final class WritingAssistant: @unchecked Sendable {
                     continue
                 }
                 let done = body
-                let (out, s) = try await generate(actionID: actionID, text: chunk.body, budgetFactor: 1.6, extra: 24) { partial in
+                let (generated, s) = try await generate(actionID: actionID, text: chunk.body, budgetFactor: 1.6, extra: 24) { partial in
                     onPartial?(leading + done + partial)
                 }
                 stats = stats + s
+                let endingPreserved = TextChunker.preserveEnding(of: chunk.body, in: generated)
+                let registerPreserved = Self.preserveFrenchRegister(of: chunk.body, in: endingPreserved)
+                let out = TextDiff.preservingApostrophes(from: chunk.body, in: registerPreserved)
                 let outputGuard = try OutputGuard(library: library, action: actionID, text: chunk.body)
                 if outputGuard.evaluate(source: chunk.body, output: out).isAccepted {
                     body += out
@@ -98,6 +101,25 @@ public final class WritingAssistant: @unchecked Sendable {
         let output = leading + body + trailing + remainder
         return AssistantResult(actionID: actionID, original: text, output: output, rejectedChunks: rejected,
                                segments: TextDiff.diff(text, output), stats: stats)
+    }
+
+    // Match a simple subject–verb–pas clause to detect a newly added formal negation.
+    private static let frenchNegation = try! NSRegularExpression(
+        pattern: #"\A(je|tu|il|elle|on|nous|vous|ils|elles)([ \t]+)(ne[ \t]+|n['’])?\p{L}+[ \t]+pas\b"#,
+        options: .caseInsensitive
+    )
+
+    private static func preserveFrenchRegister(of source: String, in output: String) -> String {
+        guard let original = frenchNegation.firstMatch(in: source, range: NSRange(source.startIndex..., in: source)),
+              original.range(at: 3).location == NSNotFound,
+              let edit = frenchNegation.firstMatch(in: output, range: NSRange(output.startIndex..., in: output)),
+              let subject = Range(original.range(at: 1), in: source),
+              let editedSubject = Range(edit.range(at: 1), in: output),
+              source[subject].lowercased() == output[editedSubject].lowercased(),
+              let addedNe = Range(edit.range(at: 3), in: output) else { return output }
+        // Removing an elided negation can require changing the subject or guessing the intended verb.
+        guard output[addedNe].last?.isWhitespace == true else { return source }
+        return String(source[subject] + output[editedSubject.upperBound..<addedNe.lowerBound] + output[addedNe.upperBound...])
     }
 
     private func generate(actionID: String, text: String, budgetFactor: Double, extra: Int,
